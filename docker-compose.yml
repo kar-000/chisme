@@ -27,6 +27,8 @@ services:
       CORS_ORIGINS: '["http://localhost"]'
       DEBUG: "false"
       LOG_LEVEL: INFO
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -52,3 +54,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { listChannels, createChannel, getMessages, sendMessage } from '../services/channels'
 import { addReaction, removeReaction, editMessage, deleteMessage } from '../services/messages'
 
+let _nextTempId = 1
+
 const useChatStore = create((set, get) => ({
   channels: [],
   activeChannelId: null,
@@ -10,11 +12,14 @@ const useChatStore = create((set, get) => ({
   loadingMessages: false,
   typingUsers: [],       // usernames currently typing
 
+  // Pending attachments: [{ tempId, file, progress, id, url, error }]
+  // progress 0-100, id/url set after upload completes
+  pendingAttachments: [],
+
   /* ── Channels ─────────────────────────────────────────────────── */
   fetchChannels: async () => {
     const { data } = await listChannels({ limit: 100 })
     set({ channels: data })
-    // Auto-select general or first channel
     if (!get().activeChannelId && data.length > 0) {
       const general = data.find((c) => c.name === 'general') ?? data[0]
       get().selectChannel(general.id)
@@ -28,7 +33,7 @@ const useChatStore = create((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
-    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [] })
+    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [] })
     get().fetchMessages(channelId)
   },
 
@@ -37,21 +42,18 @@ const useChatStore = create((set, get) => ({
     set({ loadingMessages: true })
     try {
       const { data } = await getMessages(channelId, { limit: 50 })
-      // API returns newest-first; reverse for display
       set({ messages: [...data.messages].reverse(), messagesTotal: data.total, loadingMessages: false })
     } catch {
       set({ loadingMessages: false })
     }
   },
 
-  sendMessage: async (content) => {
+  sendMessage: async (content, attachmentIds = []) => {
     const { activeChannelId } = get()
     if (!activeChannelId) return
-    await sendMessage(activeChannelId, content)
-    // WS broadcast will add the message; fallback refresh if WS is absent
+    await sendMessage(activeChannelId, content, attachmentIds)
   },
 
-  // Called by WebSocket when a new message arrives
   appendMessage: (msg) => {
     set((s) => {
       if (s.messages.find((m) => m.id === msg.id)) return s
@@ -68,6 +70,47 @@ const useChatStore = create((set, get) => ({
   removeMessage: (id) => {
     set((s) => ({ messages: s.messages.filter((m) => m.id !== id) }))
   },
+
+  /* ── Pending attachments ──────────────────────────────────────── */
+  addPendingAttachment: (file) => {
+    const tempId = _nextTempId++
+    set((s) => ({
+      pendingAttachments: [...s.pendingAttachments, { tempId, file, progress: 0, id: null, url: null, error: null }],
+    }))
+    return tempId
+  },
+
+  updateAttachmentProgress: (tempId, progress) => {
+    set((s) => ({
+      pendingAttachments: s.pendingAttachments.map((a) =>
+        a.tempId === tempId ? { ...a, progress } : a
+      ),
+    }))
+  },
+
+  finalizeAttachment: (tempId, data) => {
+    set((s) => ({
+      pendingAttachments: s.pendingAttachments.map((a) =>
+        a.tempId === tempId ? { ...a, progress: 100, id: data.id, url: data.url } : a
+      ),
+    }))
+  },
+
+  setAttachmentError: (tempId, error) => {
+    set((s) => ({
+      pendingAttachments: s.pendingAttachments.map((a) =>
+        a.tempId === tempId ? { ...a, error } : a
+      ),
+    }))
+  },
+
+  removePendingAttachment: (tempId) => {
+    set((s) => ({
+      pendingAttachments: s.pendingAttachments.filter((a) => a.tempId !== tempId),
+    }))
+  },
+
+  clearPendingAttachments: () => set({ pendingAttachments: [] }),
 
   /* ── Reactions ────────────────────────────────────────────────── */
   addReaction: async (messageId, emoji) => {

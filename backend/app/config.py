@@ -11,6 +11,21 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
+    # File uploads
+    UPLOAD_DIR: str = "./uploads"
+    MAX_UPLOAD_SIZE: int = 26_214_400  # 25 MB
+    ALLOWED_MIME_TYPES: List[str] = [
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "video/mp4",
+        "video/webm",
+        "application/pdf",
+        "application/zip",
+        "text/plain",
+    ]
+
     model_config = {"env_file": ".env"}
 
 

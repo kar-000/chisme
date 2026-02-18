@@ -21,3 +21,4 @@ class Message(Base):
     user = relationship("User", back_populates="messages")
     channel = relationship("Channel", back_populates="messages")
     reactions = relationship("Reaction", back_populates="message", cascade="all, delete-orphan")
+    attachments = relationship("Attachment", back_populates="message", cascade="all, delete-orphan")

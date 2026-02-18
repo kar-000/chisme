@@ -2,6 +2,90 @@ import { useState } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
 
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function Attachments({ attachments }) {
+  const [lightbox, setLightbox] = useState(null)
+
+  if (!attachments?.length) return null
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 mt-1.5">
+        {attachments.map((a) => {
+          const isImage = a.mime_type.startsWith('image/')
+          const isVideo = a.mime_type.startsWith('video/')
+
+          if (isImage) {
+            return (
+              <img
+                key={a.id}
+                src={a.url}
+                alt={a.original_filename}
+                className="max-h-48 rounded border border-[var(--border)] object-cover cursor-pointer
+                           hover:border-[var(--border-glow)] hover:shadow-glow-sm transition-all"
+                onClick={() => setLightbox(a.url)}
+                data-testid="attachment-image"
+              />
+            )
+          }
+
+          if (isVideo) {
+            return (
+              <video
+                key={a.id}
+                src={a.url}
+                controls
+                className="max-h-48 rounded border border-[var(--border)]"
+                data-testid="attachment-video"
+              />
+            )
+          }
+
+          // Generic file card
+          return (
+            <a
+              key={a.id}
+              href={a.url}
+              download={a.original_filename}
+              className="flex items-center gap-2 px-3 py-2 rounded border border-[var(--border)]
+                         bg-black/40 hover:border-[var(--border-glow)] hover:bg-black/60
+                         transition-all duration-150 text-[var(--text-primary)] no-underline"
+              data-testid="attachment-file"
+            >
+              <span className="text-lg">📎</span>
+              <div className="min-w-0">
+                <div className="text-xs font-mono truncate max-w-[160px]">{a.original_filename}</div>
+                <div className="text-[10px] text-[var(--text-muted)] font-mono">{formatBytes(a.size)}</div>
+              </div>
+            </a>
+          )
+        })}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-pointer"
+          onClick={() => setLightbox(null)}
+          data-testid="lightbox"
+        >
+          <img
+            src={lightbox}
+            alt="Full size"
+            className="max-h-[90vh] max-w-[90vw] rounded shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
+  )
+}
+
 function formatTime(iso) {
   const d = new Date(iso)
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -126,6 +210,7 @@ export default function Message({ message }) {
           </p>
         )}
 
+        <Attachments attachments={message.attachments} />
         <ReactionBar reactions={message.reactions} messageId={message.id} />
       </div>
 

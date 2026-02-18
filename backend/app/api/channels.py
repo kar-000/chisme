@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.attachment import Attachment
 from app.models.channel import Channel
 from app.models.message import Message
 from app.models.user import User
@@ -121,4 +122,15 @@ async def send_message(
     db.add(message)
     db.commit()
     db.refresh(message)
+
+    # Link any pre-uploaded attachments to this message
+    if message_in.attachment_ids:
+        db.query(Attachment).filter(
+            Attachment.id.in_(message_in.attachment_ids),
+            Attachment.user_id == current_user.id,
+            Attachment.message_id.is_(None),
+        ).update({"message_id": message.id}, synchronize_session=False)
+        db.commit()
+        db.refresh(message)
+
     return MessageResponse.model_validate(message)

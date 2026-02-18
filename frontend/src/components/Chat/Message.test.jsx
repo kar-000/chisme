@@ -21,6 +21,7 @@ const baseMessage = {
   created_at: '2024-01-01T10:30:00Z',
   reactions: [],
   edited_at: null,
+  attachments: [],
 }
 
 beforeEach(() => {
@@ -109,5 +110,57 @@ describe('Message', () => {
     fireEvent.mouseEnter(container.firstChild)
     await userEvent.click(screen.getByTitle('React 👍'))
     expect(mockAddReaction).toHaveBeenCalledWith(1, '👍')
+  })
+
+  it('renders an image attachment as an img tag', () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{ id: 10, mime_type: 'image/png', url: '/uploads/img.png', original_filename: 'img.png', size: 1024 }],
+    }
+    render(<Message message={message} />)
+    expect(screen.getByTestId('attachment-image')).toBeInTheDocument()
+    expect(screen.getByTestId('attachment-image').src).toContain('/uploads/img.png')
+  })
+
+  it('opens lightbox when image is clicked', async () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{ id: 10, mime_type: 'image/png', url: '/uploads/img.png', original_filename: 'img.png', size: 1024 }],
+    }
+    render(<Message message={message} />)
+    await userEvent.click(screen.getByTestId('attachment-image'))
+    expect(screen.getByTestId('lightbox')).toBeInTheDocument()
+  })
+
+  it('closes lightbox when backdrop is clicked', async () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{ id: 10, mime_type: 'image/png', url: '/uploads/img.png', original_filename: 'img.png', size: 1024 }],
+    }
+    render(<Message message={message} />)
+    await userEvent.click(screen.getByTestId('attachment-image'))
+    await userEvent.click(screen.getByTestId('lightbox'))
+    expect(screen.queryByTestId('lightbox')).toBeNull()
+  })
+
+  it('renders a file download card for non-image attachments', () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{ id: 11, mime_type: 'application/pdf', url: '/uploads/doc.pdf', original_filename: 'doc.pdf', size: 2048 }],
+    }
+    render(<Message message={message} />)
+    const card = screen.getByTestId('attachment-file')
+    expect(card).toBeInTheDocument()
+    expect(card.href).toContain('/uploads/doc.pdf')
+    expect(screen.getByText('doc.pdf')).toBeInTheDocument()
+  })
+
+  it('renders a video element for video attachments', () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{ id: 12, mime_type: 'video/mp4', url: '/uploads/clip.mp4', original_filename: 'clip.mp4', size: 1048576 }],
+    }
+    render(<Message message={message} />)
+    expect(screen.getByTestId('attachment-video')).toBeInTheDocument()
   })
 })

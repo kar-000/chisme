@@ -10,13 +10,15 @@ UI palette reference (from COLOR_REFERENCE.md warm CRT theme):
 """
 
 import logging
+import os
 
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from app.api import auth, channels, health, messages, users
+from app.api import auth, channels, health, messages, uploads, users
 from app.config import settings
 from app.database import get_db
 from app.websocket.handlers import channel_ws_handler
@@ -26,6 +28,8 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(
     title="chisme",
@@ -53,6 +57,10 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(channels.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
+app.include_router(uploads.router, prefix="/api")
+
+# Serve uploaded files as static assets
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # ---------------------------------------------------------------------------
 # WebSocket endpoint
