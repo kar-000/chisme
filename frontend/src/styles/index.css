@@ -1,0 +1,96 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS custom properties (warm CRT palette) ─────────────────────────── */
+:root {
+  --bg-primary:    #1a1612;
+  --bg-secondary:  #0a0a0a;
+  --bg-hover:      rgba(0, 206, 209, 0.08);
+  --bg-active:     rgba(0, 206, 209, 0.14);
+  --bg-panel:      rgba(0, 0, 0, 0.25);
+
+  --text-primary:  #00CED1;   /* CRT teal */
+  --text-lt:       #5DADE2;   /* light teal — usernames */
+  --text-muted:    #8B8B8B;   /* timestamps / secondary */
+  --text-own:      #FFB6C1;   /* own messages — soft pink */
+  --text-error:    #ff6b6b;
+
+  --accent-teal:   #00CED1;
+  --accent-orange: #FF8C42;   /* unread badges */
+
+  --border:        rgba(0, 206, 209, 0.2);
+  --border-bright: rgba(0, 206, 209, 0.5);
+  --border-glow:   #00CED1;
+
+  --glow-sm:  0 0 6px  rgba(0, 206, 209, 0.3);
+  --glow:     0 0 10px rgba(0, 206, 209, 0.6);
+  --glow-lg:  0 0 20px rgba(0, 206, 209, 0.6);
+  --glow-pink:0 0 6px  rgba(255, 182, 193, 0.3);
+
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+}
+
+/* ── Base reset ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* ── CRT scanline overlay ──────────────────────────────────────────────── */
+#root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 206, 209, 0.018) 0px,
+    transparent 1px,
+    transparent 2px,
+    rgba(0, 206, 209, 0.018) 3px
+  );
+  z-index: 9999;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 6px; }
+::-webkit-scrollbar-track  { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb  { background: rgba(0,206,209,0.3); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,206,209,0.55); }
+
+/* ── Focus ring ────────────────────────────────────────────────────────── */
+:focus-visible { outline: 2px solid var(--border-glow); outline-offset: 2px; }
+
+/* ── Utility glows ─────────────────────────────────────────────────────── */
+.glow-teal { text-shadow: var(--glow-sm); }
+.glow-pink { text-shadow: var(--glow-pink); }
+
+/* ── Message appear animation ─────────────────────────────────────────── */
+@keyframes msg-appear {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.msg-appear { animation: msg-appear 0.25s ease-out; }
+
+/* ── Typing blink ─────────────────────────────────────────────────────── */
+@keyframes typing-blink {
+  0%, 60%, 100% { opacity: 0; }
+  30%           { opacity: 1; }
+}
+
+/* ── Reduced motion ───────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
