@@ -109,7 +109,10 @@ const useChatStore = create((set, get) => ({
   },
 
   /* ── Typing ───────────────────────────────────────────────────── */
-  setTypingUsers: (users) => set({ typingUsers: users }),
+  setTypingUsers: (updater) =>
+    typeof updater === 'function'
+      ? set((s) => ({ typingUsers: updater(s.typingUsers) }))
+      : set({ typingUsers: updater }),
 }))
 
 export default useChatStore
