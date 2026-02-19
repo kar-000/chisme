@@ -20,7 +20,8 @@ def upgrade() -> None:
     with op.batch_alter_table("messages") as batch_op:
         batch_op.add_column(sa.Column("reply_to_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
-            "fk_messages_reply_to_id", "messages", ["reply_to_id"], ["id"]
+            "fk_messages_reply_to_id", "messages", ["reply_to_id"], ["id"],
+            ondelete="SET NULL",
         )
 
 
