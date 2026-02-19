@@ -1,9 +1,8 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 
 from app.schemas.user import UserResponse
-from app.schemas.message import MessageResponse
 
 
 class DMChannelResponse(BaseModel):
