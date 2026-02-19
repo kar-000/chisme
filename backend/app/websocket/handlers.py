@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def _authenticate(websocket: WebSocket, db: Session) -> User | None:
     """Expect the first message to be {"type": "auth", "token": "<jwt>"}."""
+    await websocket.accept()  # must accept before receive_text()
     try:
         raw = await websocket.receive_text()
         data = json.loads(raw)

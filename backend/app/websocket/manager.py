@@ -18,7 +18,6 @@ class ConnectionManager:
         self._dm_connections: Dict[int, List[WebSocket]] = defaultdict(list)
 
     async def connect(self, websocket: WebSocket, channel_id: int) -> None:
-        await websocket.accept()
         self._connections[channel_id].append(websocket)
         logger.info("WebSocket connected to channel %s", channel_id)
 
@@ -40,7 +39,6 @@ class ConnectionManager:
             self.disconnect(ws, channel_id)
 
     async def connect_dm(self, websocket: WebSocket, dm_id: int) -> None:
-        await websocket.accept()
         self._dm_connections[dm_id].append(websocket)
         logger.info("WebSocket connected to DM channel %s", dm_id)
 

@@ -12,7 +12,7 @@ UI palette reference (from COLOR_REFERENCE.md warm CRT theme):
 import logging
 import os
 
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -42,9 +42,16 @@ app = FastAPI(
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
+# allow_origins=["*"] is incompatible with allow_credentials=True in the CORS
+# spec. When the wildcard is present (dev), switch to allow_origin_regex=".*"
+# which achieves the same effect without triggering Starlette's guard.
+_cors_origins = [o for o in settings.CORS_ORIGINS if o != "*"]
+_cors_regex = ".*" if len(_cors_origins) < len(settings.CORS_ORIGINS) else None
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=_cors_origins,
+    allow_origin_regex=_cors_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -70,21 +77,17 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 # ---------------------------------------------------------------------------
 
 @app.websocket("/ws/channels/{channel_id}")
-async def websocket_endpoint(websocket: WebSocket, channel_id: int) -> None:
-    db: Session = next(get_db())
-    try:
-        await channel_ws_handler(websocket, channel_id, db)
-    finally:
-        db.close()
+async def websocket_endpoint(
+    websocket: WebSocket, channel_id: int, db: Session = Depends(get_db)
+) -> None:
+    await channel_ws_handler(websocket, channel_id, db)
 
 
 @app.websocket("/ws/dm/{dm_id}")
-async def dm_websocket_endpoint(websocket: WebSocket, dm_id: int) -> None:
-    db: Session = next(get_db())
-    try:
-        await dm_ws_handler(websocket, dm_id, db)
-    finally:
-        db.close()
+async def dm_websocket_endpoint(
+    websocket: WebSocket, dm_id: int, db: Session = Depends(get_db)
+) -> None:
+    await dm_ws_handler(websocket, dm_id, db)
 
 # ---------------------------------------------------------------------------
 # Custom exception handlers
