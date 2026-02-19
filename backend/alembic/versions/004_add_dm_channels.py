@@ -27,21 +27,19 @@ def upgrade() -> None:
         sa.UniqueConstraint("user1_id", "user2_id", name="unique_dm_pair"),
     )
 
-    op.add_column(
-        "messages",
-        sa.Column(
-            "dm_channel_id",
-            sa.Integer(),
-            sa.ForeignKey("dm_channels.id", ondelete="CASCADE"),
-            nullable=True,
-        ),
-    )
-
-    # Make channel_id nullable so DM messages don't need a channel
-    op.alter_column("messages", "channel_id", nullable=True)
+    with op.batch_alter_table("messages") as batch_op:
+        batch_op.add_column(sa.Column("dm_channel_id", sa.Integer(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_messages_dm_channel_id", "dm_channels", ["dm_channel_id"], ["id"],
+            ondelete="CASCADE",
+        )
+        # Make channel_id nullable so DM messages don't need a channel
+        batch_op.alter_column("channel_id", nullable=True)
 
 
 def downgrade() -> None:
-    op.alter_column("messages", "channel_id", nullable=False)
-    op.drop_column("messages", "dm_channel_id")
+    with op.batch_alter_table("messages") as batch_op:
+        batch_op.alter_column("channel_id", nullable=False)
+        batch_op.drop_constraint("fk_messages_dm_channel_id", type_="foreignkey")
+        batch_op.drop_column("dm_channel_id")
     op.drop_table("dm_channels")

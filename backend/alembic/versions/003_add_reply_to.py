@@ -17,16 +17,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "messages",
-        sa.Column(
-            "reply_to_id",
-            sa.Integer(),
-            sa.ForeignKey("messages.id", ondelete="SET NULL"),
-            nullable=True,
-        ),
-    )
+    with op.batch_alter_table("messages") as batch_op:
+        batch_op.add_column(sa.Column("reply_to_id", sa.Integer(), nullable=True))
+        batch_op.create_foreign_key(
+            "fk_messages_reply_to_id", "messages", ["reply_to_id"], ["id"],
+            ondelete="SET NULL",
+        )
 
 
 def downgrade() -> None:
-    op.drop_column("messages", "reply_to_id")
+    with op.batch_alter_table("messages") as batch_op:
+        batch_op.drop_constraint("fk_messages_reply_to_id", type_="foreignkey")
+        batch_op.drop_column("reply_to_id")
