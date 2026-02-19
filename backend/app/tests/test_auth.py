@@ -1,6 +1,5 @@
 """Tests for /api/auth endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import auth_headers, register_user

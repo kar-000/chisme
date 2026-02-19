@@ -1,12 +1,15 @@
 import { useEffect } from 'react'
 import useAuthStore from './store/authStore'
 import useChatStore from './store/chatStore'
+import useDMStore from './store/dmStore'
 import AuthPage from './components/Auth/AuthPage'
 import Sidebar from './components/Layout/Sidebar'
 import MessageFeed from './components/Chat/MessageFeed'
+import DMView from './components/Chat/DMView'
 
 function ChatLayout() {
   const fetchChannels = useChatStore((s) => s.fetchChannels)
+  const activeDmId = useDMStore((s) => s.activeDmId)
 
   useEffect(() => {
     fetchChannels()
@@ -15,7 +18,7 @@ function ChatLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
       <Sidebar />
-      <MessageFeed />
+      {activeDmId ? <DMView /> : <MessageFeed />}
     </div>
   )
 }

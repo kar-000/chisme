@@ -25,6 +25,7 @@ const mockFinalizeAttachment = vi.fn()
 const mockSetAttachmentError = vi.fn()
 const mockRemovePendingAttachment = vi.fn()
 const mockClearPendingAttachments = vi.fn()
+const mockClearReplyingTo = vi.fn()
 
 const defaultStore = {
   sendMessage: mockSendMessage,
@@ -37,6 +38,8 @@ const defaultStore = {
   setAttachmentError: mockSetAttachmentError,
   removePendingAttachment: mockRemovePendingAttachment,
   clearPendingAttachments: mockClearPendingAttachments,
+  replyingTo: null,
+  clearReplyingTo: mockClearReplyingTo,
 }
 
 beforeEach(() => {
@@ -130,5 +133,31 @@ describe('MessageInput', () => {
     })
     render(<MessageInput />)
     expect(screen.getByTitle(/send/i)).not.toBeDisabled()
+  })
+
+  it('shows reply preview strip when replyingTo is set', () => {
+    useChatStore.mockReturnValue({
+      ...defaultStore,
+      replyingTo: { id: 10, content: 'Original message', user: { username: 'alice' } },
+    })
+    render(<MessageInput />)
+    expect(screen.getByTestId('reply-preview')).toBeInTheDocument()
+    expect(screen.getByText('alice')).toBeInTheDocument()
+    expect(screen.getByText('Original message')).toBeInTheDocument()
+  })
+
+  it('does not show reply preview when replyingTo is null', () => {
+    render(<MessageInput />)
+    expect(screen.queryByTestId('reply-preview')).toBeNull()
+  })
+
+  it('cancel reply button calls clearReplyingTo', async () => {
+    useChatStore.mockReturnValue({
+      ...defaultStore,
+      replyingTo: { id: 10, content: 'Hello', user: { username: 'bob' } },
+    })
+    render(<MessageInput />)
+    await userEvent.click(screen.getByTestId('cancel-reply'))
+    expect(mockClearReplyingTo).toHaveBeenCalled()
   })
 })

@@ -18,10 +18,10 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from app.api import auth, channels, health, messages, uploads, users
+from app.api import auth, channels, dms, health, messages, uploads, users
 from app.config import settings
-from app.database import get_db
-from app.websocket.handlers import channel_ws_handler
+from app.database import get_db, configure_wal_for_replication
+from app.websocket.handlers import channel_ws_handler, dm_ws_handler
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -30,6 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+configure_wal_for_replication()
 
 app = FastAPI(
     title="chisme",
@@ -58,6 +59,7 @@ app.include_router(users.router, prefix="/api")
 app.include_router(channels.router, prefix="/api")
 app.include_router(messages.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
+app.include_router(dms.router, prefix="/api")
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
@@ -71,6 +73,15 @@ async def websocket_endpoint(websocket: WebSocket, channel_id: int) -> None:
     db: Session = next(get_db())
     try:
         await channel_ws_handler(websocket, channel_id, db)
+    finally:
+        db.close()
+
+
+@app.websocket("/ws/dm/{dm_id}")
+async def dm_websocket_endpoint(websocket: WebSocket, dm_id: int) -> None:
+    db: Session = next(get_db())
+    try:
+        await dm_ws_handler(websocket, dm_id, db)
     finally:
         db.close()
 

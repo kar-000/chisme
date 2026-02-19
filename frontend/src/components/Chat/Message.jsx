@@ -86,6 +86,19 @@ function Attachments({ attachments }) {
   )
 }
 
+function QuotedMessage({ reply }) {
+  if (!reply) return null
+  return (
+    <div
+      className="mb-1 pl-2 border-l-2 border-[var(--accent-teal)] text-[var(--text-muted)] text-xs font-mono truncate"
+      data-testid="quoted-message"
+    >
+      <span className="text-[var(--text-lt)] mr-1">{reply.user?.username}</span>
+      <span className="opacity-70">{reply.content}</span>
+    </div>
+  )
+}
+
 function formatTime(iso) {
   const d = new Date(iso)
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -135,7 +148,7 @@ function ReactionBar({ reactions = [], messageId }) {
 
 export default function Message({ message }) {
   const { user } = useAuthStore()
-  const { editMessage, deleteMessage, addReaction } = useChatStore()
+  const { editMessage, deleteMessage, addReaction, setReplyingTo } = useChatStore()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
@@ -190,6 +203,9 @@ export default function Message({ message }) {
           )}
         </div>
 
+        {/* Quoted message */}
+        <QuotedMessage reply={message.reply_to} />
+
         {editing ? (
           <form onSubmit={handleEdit} className="flex gap-2 mt-1">
             <input
@@ -227,6 +243,14 @@ export default function Message({ message }) {
               {e}
             </button>
           ))}
+          <button
+            onClick={() => setReplyingTo(message)}
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors px-1"
+            title="Reply"
+            data-testid="reply-button"
+          >
+            ↩
+          </button>
           {isOwn && (
             <>
               <button

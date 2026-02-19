@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core import events
 from app.core.security import decode_access_token
+from app.models.dm_channel import DirectMessageChannel
 from app.models.user import User
 from app.websocket.manager import manager
 
@@ -76,3 +77,37 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
             channel_id,
             {"type": events.USER_LEFT, "user_id": user.id, "username": user.username},
         )
+
+
+async def dm_ws_handler(websocket: WebSocket, dm_id: int, db: Session) -> None:
+    """Full lifecycle handler for a DM channel WebSocket connection."""
+    user = await _authenticate(websocket, db)
+    if user is None:
+        return
+
+    # Verify user is a participant of this DM channel
+    dm = db.query(DirectMessageChannel).filter(DirectMessageChannel.id == dm_id).first()
+    if not dm or user.id not in (dm.user1_id, dm.user2_id):
+        await websocket.close(code=1008)
+        return
+
+    await manager.connect_dm(websocket, dm_id)
+
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            try:
+                data: dict[str, Any] = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+            event_type = data.get("type")
+
+            if event_type == events.USER_TYPING:
+                await manager.broadcast_dm(
+                    dm_id,
+                    {"type": events.USER_TYPING, "user_id": user.id, "username": user.username},
+                )
+
+    except WebSocketDisconnect:
+        manager.disconnect_dm(websocket, dm_id)

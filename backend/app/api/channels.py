@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -12,6 +13,7 @@ from app.models.message import Message
 from app.models.user import User
 from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
+from app.websocket.manager import manager
 
 router = APIRouter(prefix="/channels", tags=["channels"])
 
@@ -114,10 +116,24 @@ async def send_message(
     if channel.is_private and channel.created_by != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to channel")
 
+    # Validate reply_to_id if provided
+    if message_in.reply_to_id is not None:
+        parent = db.query(Message).filter(
+            Message.id == message_in.reply_to_id,
+            Message.channel_id == channel_id,
+            Message.is_deleted == False,  # noqa: E712
+        ).first()
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Message to reply to not found in this channel",
+            )
+
     message = Message(
         content=message_in.content,
         user_id=current_user.id,
         channel_id=channel_id,
+        reply_to_id=message_in.reply_to_id,
     )
     db.add(message)
     db.commit()
@@ -133,4 +149,12 @@ async def send_message(
         db.commit()
         db.refresh(message)
 
-    return MessageResponse.model_validate(message)
+    response = MessageResponse.model_validate(message)
+
+    # Broadcast new message to all connected channel clients
+    asyncio.ensure_future(manager.broadcast(
+        channel_id,
+        {"type": "message.new", "message": response.model_dump(mode="json")},
+    ))
+
+    return response

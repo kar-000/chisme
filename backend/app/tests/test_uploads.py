@@ -1,7 +1,7 @@
 """Tests for file upload endpoint and attachment behaviour."""
 
 import io
-import pytest
+
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import auth_headers

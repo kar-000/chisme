@@ -1,5 +1,9 @@
+import { useEffect } from 'react'
 import ChannelList from '../Chat/ChannelList'
+import DMList from '../Chat/DMList'
 import useAuthStore from '../../store/authStore'
+import useDMStore from '../../store/dmStore'
+import useChatStore from '../../store/chatStore'
 
 function Avatar({ username }) {
   const initials = username?.slice(0, 2).toUpperCase() ?? '??'
@@ -13,6 +17,17 @@ function Avatar({ username }) {
 
 export default function Sidebar() {
   const { user, logout } = useAuthStore()
+  const { fetchDMs, selectDM } = useDMStore()
+  const clearActiveChannel = useChatStore((s) => s.clearActiveChannel)
+
+  useEffect(() => {
+    fetchDMs()
+  }, [fetchDMs])
+
+  const handleSelectDM = (dmId) => {
+    clearActiveChannel()
+    selectDM(dmId)
+  }
 
   return (
     <aside className="w-60 flex flex-col bg-black/20 border-r border-[var(--border)] flex-shrink-0">
@@ -22,13 +37,26 @@ export default function Sidebar() {
           chisme
         </h1>
         <p className="text-[10px] text-[var(--text-muted)] tracking-wider mt-0.5">
-          warm crt chat
+          gossip with your people
         </p>
       </div>
 
       {/* Channel list */}
-      <div className="flex-1 min-h-0 py-2">
-        <ChannelList />
+      <div className="flex-1 min-h-0 py-2 overflow-y-auto flex flex-col">
+        <div>
+          <p className="px-4 pb-1 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">
+            channels
+          </p>
+          <ChannelList />
+        </div>
+
+        {/* DM section */}
+        <div className="mt-4">
+          <p className="px-4 pb-1 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">
+            direct messages
+          </p>
+          <DMList onSelect={handleSelectDM} />
+        </div>
       </div>
 
       {/* User panel */}

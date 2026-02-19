@@ -7,9 +7,19 @@ from app.schemas.reaction import ReactionResponse
 from app.schemas.attachment import AttachmentResponse
 
 
+class QuotedMessageResponse(BaseModel):
+    """Minimal snapshot of the parent message embedded in a reply."""
+    id: int
+    content: str
+    user: UserResponse
+
+    model_config = {"from_attributes": True}
+
+
 class MessageCreate(BaseModel):
     content: str = Field("", max_length=2000)
     attachment_ids: List[int] = []
+    reply_to_id: Optional[int] = None
 
     @model_validator(mode="after")
     def require_content_or_attachment(self) -> "MessageCreate":
@@ -26,7 +36,10 @@ class MessageResponse(BaseModel):
     id: int
     content: str
     user_id: int
-    channel_id: int
+    channel_id: Optional[int] = None
+    dm_channel_id: Optional[int] = None
+    reply_to_id: Optional[int] = None
+    reply_to: Optional[QuotedMessageResponse] = None
     created_at: datetime
     edited_at: Optional[datetime] = None
     user: UserResponse

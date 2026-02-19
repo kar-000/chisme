@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: chisme
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - postgres_wal:/var/lib/postgresql/wal_archive
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chisme"]
       interval: 5s
@@ -27,6 +28,7 @@ services:
       CORS_ORIGINS: '["http://localhost"]'
       DEBUG: "false"
       LOG_LEVEL: INFO
+      CHISME_ROLE: primary
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -54,4 +56,5 @@ services:
 
 volumes:
   postgres_data:
+  postgres_wal:
   uploads_data:

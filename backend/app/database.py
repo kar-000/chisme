@@ -1,8 +1,13 @@
-from sqlalchemy import create_engine
+import logging
+import os
+
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from typing import Generator
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
@@ -28,3 +33,32 @@ def get_db() -> Generator:
         yield db
     finally:
         db.close()
+
+
+def configure_wal_for_replication() -> None:
+    """Configure PostgreSQL WAL for streaming replication.
+
+    Only runs when CHISME_ROLE=primary (the default) and the database is
+    PostgreSQL.  Safe to call multiple times — ALTER SYSTEM is idempotent.
+    Logs a warning and returns quietly on any error (e.g. insufficient privs).
+    """
+    if _is_sqlite:
+        return  # SQLite has no WAL replication concept
+
+    role = os.getenv("CHISME_ROLE", "primary")
+    if role != "primary":
+        logger.info("Skipping WAL configuration (CHISME_ROLE=%s)", role)
+        return
+
+    logger.info("Configuring PostgreSQL WAL for future replication support…")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("ALTER SYSTEM SET wal_level = 'replica';"))
+            conn.execute(text("ALTER SYSTEM SET max_wal_senders = 10;"))
+            conn.execute(text("ALTER SYSTEM SET max_replication_slots = 10;"))
+            conn.execute(text("ALTER SYSTEM SET hot_standby = on;"))
+            conn.execute(text("ALTER SYSTEM SET wal_keep_size = '1GB';"))
+            conn.commit()
+        logger.info("WAL configuration applied. A PostgreSQL restart is required for settings to take effect.")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("WAL configuration skipped: %s", exc)

@@ -1,6 +1,5 @@
 """End-to-end flow tests — full user journeys."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import register_user

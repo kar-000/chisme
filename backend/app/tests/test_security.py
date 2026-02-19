@@ -1,9 +1,8 @@
 """Security validation tests — authorization boundaries."""
 
-import pytest
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers, register_user
+from app.tests.conftest import auth_headers
 
 
 def make_second_user(client):

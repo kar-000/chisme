@@ -12,6 +12,7 @@ const mockEditMessage = vi.fn()
 const mockDeleteMessage = vi.fn()
 const mockAddReaction = vi.fn()
 const mockRemoveReaction = vi.fn()
+const mockSetReplyingTo = vi.fn()
 
 const baseMessage = {
   id: 1,
@@ -22,6 +23,8 @@ const baseMessage = {
   reactions: [],
   edited_at: null,
   attachments: [],
+  reply_to: null,
+  reply_to_id: null,
 }
 
 beforeEach(() => {
@@ -31,6 +34,7 @@ beforeEach(() => {
     deleteMessage: mockDeleteMessage,
     addReaction: mockAddReaction,
     removeReaction: mockRemoveReaction,
+    setReplyingTo: mockSetReplyingTo,
   })
 })
 
@@ -162,5 +166,35 @@ describe('Message', () => {
     }
     render(<Message message={message} />)
     expect(screen.getByTestId('attachment-video')).toBeInTheDocument()
+  })
+
+  it('shows Reply button on hover', async () => {
+    const { container } = render(<Message message={baseMessage} />)
+    fireEvent.mouseEnter(container.firstChild)
+    expect(screen.getByTitle('Reply')).toBeInTheDocument()
+  })
+
+  it('calls setReplyingTo when Reply button is clicked', async () => {
+    const { container } = render(<Message message={baseMessage} />)
+    fireEvent.mouseEnter(container.firstChild)
+    await userEvent.click(screen.getByTitle('Reply'))
+    expect(mockSetReplyingTo).toHaveBeenCalledWith(baseMessage)
+  })
+
+  it('renders quoted block when reply_to is set', () => {
+    const message = {
+      ...baseMessage,
+      reply_to: { id: 5, content: 'Original message', user: { username: 'carol' } },
+      reply_to_id: 5,
+    }
+    render(<Message message={message} />)
+    expect(screen.getByTestId('quoted-message')).toBeInTheDocument()
+    expect(screen.getByText('carol')).toBeInTheDocument()
+    expect(screen.getByText('Original message')).toBeInTheDocument()
+  })
+
+  it('does not render quoted block when reply_to is null', () => {
+    render(<Message message={baseMessage} />)
+    expect(screen.queryByTestId('quoted-message')).toBeNull()
   })
 })

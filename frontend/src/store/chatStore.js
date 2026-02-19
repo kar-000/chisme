@@ -16,6 +16,9 @@ const useChatStore = create((set, get) => ({
   // progress 0-100, id/url set after upload completes
   pendingAttachments: [],
 
+  // Quote-reply: the message being replied to (or null)
+  replyingTo: null,
+
   /* ── Channels ─────────────────────────────────────────────────── */
   fetchChannels: async () => {
     const { data } = await listChannels({ limit: 100 })
@@ -33,8 +36,12 @@ const useChatStore = create((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
-    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [] })
+    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null })
     get().fetchMessages(channelId)
+  },
+
+  clearActiveChannel: () => {
+    set({ activeChannelId: null, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null })
   },
 
   /* ── Messages ─────────────────────────────────────────────────── */
@@ -49,9 +56,10 @@ const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (content, attachmentIds = []) => {
-    const { activeChannelId } = get()
+    const { activeChannelId, replyingTo } = get()
     if (!activeChannelId) return
-    await sendMessage(activeChannelId, content, attachmentIds)
+    await sendMessage(activeChannelId, content, attachmentIds, replyingTo?.id ?? null)
+    set({ replyingTo: null })
   },
 
   appendMessage: (msg) => {
@@ -111,6 +119,10 @@ const useChatStore = create((set, get) => ({
   },
 
   clearPendingAttachments: () => set({ pendingAttachments: [] }),
+
+  /* ── Reply ────────────────────────────────────────────────────── */
+  setReplyingTo: (message) => set({ replyingTo: message }),
+  clearReplyingTo: () => set({ replyingTo: null }),
 
   /* ── Reactions ────────────────────────────────────────────────── */
   addReaction: async (messageId, emoji) => {

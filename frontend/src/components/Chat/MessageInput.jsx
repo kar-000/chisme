@@ -21,6 +21,8 @@ export default function MessageInput({ onTyping }) {
     setAttachmentError,
     removePendingAttachment,
     clearPendingAttachments,
+    replyingTo,
+    clearReplyingTo,
   } = useChatStore()
   const lastTypingSent = useRef(0)
   const textareaRef = useRef(null)
@@ -104,6 +106,26 @@ export default function MessageInput({ onTyping }) {
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
     >
+      {/* Reply preview strip */}
+      {replyingTo && (
+        <div
+          className="flex items-center gap-2 px-4 pt-2 text-xs font-mono text-[var(--text-muted)]"
+          data-testid="reply-preview"
+        >
+          <span className="text-[var(--accent-teal)]">↩ Replying to</span>
+          <span className="text-[var(--text-lt)]">{replyingTo.user?.username}</span>
+          <span className="truncate max-w-[300px] opacity-70">{replyingTo.content}</span>
+          <button
+            onClick={clearReplyingTo}
+            className="ml-auto text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            title="Cancel reply"
+            data-testid="cancel-reply"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {pendingAttachments.length > 0 && (
         <AttachmentPreview
           attachments={pendingAttachments}

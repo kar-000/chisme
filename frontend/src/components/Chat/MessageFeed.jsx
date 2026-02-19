@@ -6,13 +6,14 @@ import Message from './Message'
 import MessageInput from './MessageInput'
 import TypingIndicator from './TypingIndicator'
 import Header from '../Layout/Header'
+import FailoverBanner from '../Common/FailoverBanner'
 
 export default function MessageFeed() {
   const { messages, loadingMessages, activeChannelId } = useChatStore()
   const { token } = useAuthStore()
   const bottomRef = useRef(null)
 
-  const { sendTyping } = useWebSocket(activeChannelId, token)
+  const { sendTyping, reconnecting, failoverDetected } = useWebSocket(activeChannelId, token)
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function MessageFeed() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
+      <FailoverBanner reconnecting={reconnecting} failoverDetected={failoverDetected} />
       <Header />
 
       {/* Messages scroll area */}
