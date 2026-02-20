@@ -1,9 +1,7 @@
 """Tests for the GIF search + attach endpoints."""
 
-import io
 import json
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import auth_headers
@@ -63,7 +61,6 @@ class TestGifSearch:
 
     def test_search_returns_gif_list(self, client: TestClient, monkeypatch):
         import urllib.request
-        import app.api.gifs as gifs_module
 
         captured_url: list[str] = []
 
