@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.attachment import Attachment
 from app.models.user import User
 from app.schemas.attachment import AttachmentResponse
-from app.storage import save_upload
+from app.storage import generate_thumbnail, save_upload
 
 router = APIRouter(prefix="/upload", tags=["uploads"])
 
@@ -35,11 +35,15 @@ async def upload_file(
             detail=f"File exceeds the {settings.MAX_UPLOAD_SIZE // (1024 * 1024)} MB limit",
         )
 
-    stored_filename, _ = save_upload(
+    stored_filename, full_path = save_upload(
         content=content,
         original_filename=file.filename,
         upload_dir=settings.UPLOAD_DIR,
     )
+
+    thumb_name = None
+    if file.content_type and file.content_type.startswith("image/"):
+        thumb_name = generate_thumbnail(full_path, settings.UPLOAD_DIR)
 
     attachment = Attachment(
         user_id=current_user.id,
@@ -47,6 +51,7 @@ async def upload_file(
         original_filename=file.filename or "upload",
         mime_type=file.content_type,
         size=len(content),
+        thumbnail_filename=thumb_name,
     )
     db.add(attachment)
     db.commit()

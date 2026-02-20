@@ -6,6 +6,7 @@ Abstraction layer — swap this module to add S3/MinIO support later.
 import os
 import uuid
 from pathlib import Path
+from typing import Optional
 
 
 def _uuid_filename(original: str | None) -> str:
@@ -35,3 +36,31 @@ def delete_upload(filename: str, upload_dir: str) -> None:
         os.remove(path)
     except FileNotFoundError:
         pass
+
+
+def generate_thumbnail(src_path: str, upload_dir: str, max_size: int = 320) -> Optional[str]:
+    """Generate a JPEG thumbnail for an image file.
+
+    Returns the thumbnail filename (e.g. ``thumb_<uuid>.jpg``) on success,
+    or ``None`` if Pillow is unavailable or the file is not a supported image.
+    """
+    try:
+        from PIL import Image  # type: ignore[import]
+    except ImportError:
+        return None
+
+    try:
+        img = Image.open(src_path)
+        img.thumbnail((max_size, max_size))
+        if img.mode in ("RGBA", "P", "LA"):
+            img = img.convert("RGB")
+        thumb_name = f"thumb_{uuid.uuid4().hex}.jpg"
+        img.save(
+            os.path.join(upload_dir, thumb_name),
+            "JPEG",
+            quality=85,
+            optimize=True,
+        )
+        return thumb_name
+    except Exception:
+        return None

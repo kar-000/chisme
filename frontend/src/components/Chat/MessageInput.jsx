@@ -1,7 +1,9 @@
 import { useState, useRef, useCallback } from 'react'
 import useChatStore from '../../store/chatStore'
 import { uploadFile } from '../../services/uploads'
+import { attachGif } from '../../services/gifs'
 import AttachmentPreview from './AttachmentPreview'
+import GifPicker from './GifPicker'
 
 const TYPING_THROTTLE = 2000
 
@@ -10,6 +12,7 @@ const ACCEPTED = 'image/*,video/mp4,video/webm,application/pdf,application/zip,t
 export default function MessageInput({ onTyping }) {
   const [content, setContent] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [showGifPicker, setShowGifPicker] = useState(false)
   const {
     sendMessage,
     activeChannelId,
@@ -55,7 +58,7 @@ export default function MessageInput({ onTyping }) {
     for (const file of files) {
       const tempId = addPendingAttachment(file)
       try {
-        const data = await uploadFile(file, (pct) =>
+        const { data } = await uploadFile(file, (pct) =>
           updateAttachmentProgress(tempId, pct),
         )
         finalizeAttachment(tempId, data)
@@ -78,6 +81,16 @@ export default function MessageInput({ onTyping }) {
     const files = Array.from(e.dataTransfer.files)
     if (files.length) uploadFiles(files)
   }, [uploadFiles])
+
+  const handleGifSelect = useCallback(async (gif) => {
+    const tempId = addPendingAttachment(null)
+    try {
+      const { data } = await attachGif(gif)
+      finalizeAttachment(tempId, data)
+    } catch {
+      setAttachmentError(tempId, 'GIF attach failed')
+    }
+  }, [addPendingAttachment, finalizeAttachment, setAttachmentError])
 
   const isUploading = pendingAttachments.some((a) => a.progress < 100 && !a.error)
   const readyIds = pendingAttachments
@@ -133,7 +146,7 @@ export default function MessageInput({ onTyping }) {
         />
       )}
 
-      <div className="px-4 py-3 flex gap-2 items-end">
+      <div className="px-4 py-3 flex gap-2 items-end relative">
         {/* Hidden file input */}
         <input
           ref={fileInputRef}
@@ -144,6 +157,14 @@ export default function MessageInput({ onTyping }) {
           onChange={handleFileChange}
           data-testid="file-input"
         />
+
+        {/* GIF picker (positioned above this row) */}
+        {showGifPicker && (
+          <GifPicker
+            onSelect={handleGifSelect}
+            onClose={() => setShowGifPicker(false)}
+          />
+        )}
 
         {/* Paperclip button */}
         <button
@@ -159,6 +180,22 @@ export default function MessageInput({ onTyping }) {
           data-testid="attach-button"
         >
           📎
+        </button>
+
+        {/* GIF button */}
+        <button
+          onClick={() => setShowGifPicker((v) => !v)}
+          className="
+            h-9 px-2 flex items-center justify-center rounded flex-shrink-0
+            border border-[var(--border)] text-[var(--text-muted)]
+            hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+            hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
+            transition-all duration-200 font-mono text-xs font-bold
+          "
+          title="Insert GIF"
+          data-testid="gif-button"
+        >
+          GIF
         </button>
 
         <textarea

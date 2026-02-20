@@ -24,7 +24,7 @@ function Attachments({ attachments }) {
             return (
               <img
                 key={a.id}
-                src={a.url}
+                src={a.thumbnail_url || a.url}
                 alt={a.original_filename}
                 className="max-h-48 rounded border border-[var(--border)] object-cover cursor-pointer
                            hover:border-[var(--border-glow)] hover:shadow-glow-sm transition-all"

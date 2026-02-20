@@ -197,4 +197,56 @@ describe('Message', () => {
     render(<Message message={baseMessage} />)
     expect(screen.queryByTestId('quoted-message')).toBeNull()
   })
+
+  it('uses thumbnail_url for image display when present', () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{
+        id: 20,
+        mime_type: 'image/png',
+        url: '/uploads/full.png',
+        thumbnail_url: '/uploads/thumb_abc.jpg',
+        original_filename: 'photo.png',
+        size: 204800,
+      }],
+    }
+    render(<Message message={message} />)
+    const img = screen.getByTestId('attachment-image')
+    expect(img.src).toContain('/uploads/thumb_abc.jpg')
+  })
+
+  it('opens lightbox with full url (not thumbnail) when image is clicked', async () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{
+        id: 21,
+        mime_type: 'image/png',
+        url: '/uploads/full.png',
+        thumbnail_url: '/uploads/thumb_abc.jpg',
+        original_filename: 'photo.png',
+        size: 204800,
+      }],
+    }
+    render(<Message message={message} />)
+    await userEvent.click(screen.getByTestId('attachment-image'))
+    const lightbox = screen.getByTestId('lightbox')
+    expect(lightbox.querySelector('img').src).toContain('/uploads/full.png')
+  })
+
+  it('falls back to url when thumbnail_url is absent', () => {
+    const message = {
+      ...baseMessage,
+      attachments: [{
+        id: 22,
+        mime_type: 'image/png',
+        url: '/uploads/img.png',
+        thumbnail_url: null,
+        original_filename: 'img.png',
+        size: 1024,
+      }],
+    }
+    render(<Message message={message} />)
+    const img = screen.getByTestId('attachment-image')
+    expect(img.src).toContain('/uploads/img.png')
+  })
 })
