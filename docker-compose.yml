@@ -17,6 +17,18 @@ services:
       retries: 5
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   backend:
     build: ./backend
     environment:
@@ -29,10 +41,13 @@ services:
       DEBUG: "false"
       LOG_LEVEL: INFO
       CHISME_ROLE: primary
+      REDIS_URL: redis://redis:6379/0
     volumes:
       - uploads_data:/app/uploads
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     command: >
       sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -58,3 +73,4 @@ volumes:
   postgres_data:
   postgres_wal:
   uploads_data:
+  redis_data:

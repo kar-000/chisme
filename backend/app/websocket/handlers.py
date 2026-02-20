@@ -9,6 +9,7 @@ from app.core import events
 from app.core.security import decode_access_token
 from app.models.dm_channel import DirectMessageChannel
 from app.models.user import User
+from app.redis import presence as presence_mgr
 from app.websocket.manager import manager
 
 logger = logging.getLogger(__name__)
@@ -50,10 +51,23 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
         return
 
     await manager.connect(websocket, channel_id)
-    # Announce join
+    await presence_mgr.set_online(user.id)
+    # Announce join + presence
     await manager.broadcast(
         channel_id,
-        {"type": events.USER_JOINED, "user_id": user.id, "username": user.username},
+        {
+            "type": events.USER_JOINED,
+            "user_id": user.id,
+            "username": user.username,
+        },
+    )
+    await manager.broadcast(
+        channel_id,
+        {
+            "type": events.PRESENCE_CHANGED,
+            "user_id": user.id,
+            "status": "online",
+        },
     )
 
     try:
@@ -71,12 +85,23 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                     channel_id,
                     {"type": events.USER_TYPING, "user_id": user.id, "username": user.username},
                 )
+            elif event_type == "presence.heartbeat":
+                await presence_mgr.heartbeat(user.id)
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, channel_id)
+        await presence_mgr.set_offline(user.id)
         await manager.broadcast(
             channel_id,
             {"type": events.USER_LEFT, "user_id": user.id, "username": user.username},
+        )
+        await manager.broadcast(
+            channel_id,
+            {
+                "type": events.PRESENCE_CHANGED,
+                "user_id": user.id,
+                "status": "offline",
+            },
         )
 
 
