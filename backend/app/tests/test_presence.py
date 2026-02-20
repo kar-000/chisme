@@ -10,7 +10,6 @@ Covers:
 """
 
 import pytest
-import pytest_asyncio
 
 import app.redis.presence as presence_mod
 from app.tests.conftest import auth_headers
