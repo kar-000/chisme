@@ -28,6 +28,7 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          show_full_output: true
           # Auto-review on PR open/update; respond to @claude mentions in comments
           prompt: ${{ github.event_name == 'pull_request' && '/review' || '' }}
           claude_args: >-
