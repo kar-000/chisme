@@ -17,6 +17,7 @@ from app.redis.client import get_redis
 logger = logging.getLogger(__name__)
 
 _PREFIX = "presence"
+VALID_STATUSES = {"online", "away", "dnd"}
 
 
 def _key(user_id: int) -> str:
@@ -25,6 +26,9 @@ def _key(user_id: int) -> str:
 
 async def set_online(user_id: int, status: str = "online") -> None:
     """Mark a user as online (or away/dnd) with a TTL-based expiry."""
+    if status not in VALID_STATUSES:
+        logger.warning("presence.set_online: invalid status %r — ignoring", status)
+        return
     r = get_redis()
     if r is None:
         return

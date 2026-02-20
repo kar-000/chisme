@@ -36,7 +36,11 @@ async def _authenticate(websocket: WebSocket, db: Session) -> User | None:
         return None
 
     user_id = payload.get("sub")
-    user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()  # noqa: E712
+    try:
+        user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()  # noqa: E712
+    except (TypeError, ValueError):
+        await websocket.close(code=1008)
+        return None
     if not user:
         await websocket.close(code=1008)
         return None
@@ -118,6 +122,7 @@ async def dm_ws_handler(websocket: WebSocket, dm_id: int, db: Session) -> None:
         return
 
     await manager.connect_dm(websocket, dm_id)
+    await presence_mgr.set_online(user.id)
 
     try:
         while True:
@@ -134,6 +139,9 @@ async def dm_ws_handler(websocket: WebSocket, dm_id: int, db: Session) -> None:
                     dm_id,
                     {"type": events.USER_TYPING, "user_id": user.id, "username": user.username},
                 )
+            elif event_type == "presence.heartbeat":
+                await presence_mgr.heartbeat(user.id)
 
     except WebSocketDisconnect:
         manager.disconnect_dm(websocket, dm_id)
+        await presence_mgr.set_offline(user.id)

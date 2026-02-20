@@ -97,6 +97,12 @@ async def test_set_online_custom_status(patch_redis):
 
 
 @pytest.mark.asyncio
+async def test_set_online_invalid_status_is_noop(patch_redis):
+    await presence_mod.set_online(9, "invisible")
+    assert "presence:9" not in patch_redis._data
+
+
+@pytest.mark.asyncio
 async def test_set_offline_removes_key(patch_redis):
     patch_redis._data["presence:1"] = "online"
     await presence_mod.set_offline(1)
