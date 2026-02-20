@@ -26,7 +26,7 @@ describe('FailoverBanner', () => {
     expect(screen.queryByTestId('failover-banner-dismiss')).toBeNull()
   })
 
-  it('shows dismiss button after 5 seconds and clicking hides banner', async () => {
+  it('shows dismiss button after 5 seconds and clicking hides banner', () => {
     vi.useFakeTimers()
     render(<FailoverBanner reconnecting={false} failoverDetected={true} />)
     expect(screen.queryByTestId('failover-banner-dismiss')).toBeNull()
