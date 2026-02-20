@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
+    # Redis — presence, pub/sub, voice state, HA coordination
+    # Set to empty string to disable Redis (app falls back to in-memory only)
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_PRESENCE_TTL: int = 300  # seconds — key expires if heartbeat stops
+
     # Tenor GIF API (v2) — set in .env (console.cloud.google.com → enable Tenor API → create key)
     TENOR_API_KEY: str = ""
     TENOR_API_BASE: str = "https://tenor.googleapis.com/v2"

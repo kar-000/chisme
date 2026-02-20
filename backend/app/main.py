@@ -11,6 +11,7 @@ UI palette reference (from COLOR_REFERENCE.md warm CRT theme):
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,8 +20,10 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.api import auth, channels, dms, gifs, health, messages, uploads, users
+from app.api.presence import bulk_router, router as presence_router
 from app.config import settings
 from app.database import get_db, configure_wal_for_replication
+from app.redis.client import init_redis, close_redis
 from app.websocket.handlers import channel_ws_handler, dm_ws_handler
 
 logging.basicConfig(
@@ -32,11 +35,20 @@ logger = logging.getLogger(__name__)
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 configure_wal_for_replication()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_redis()
+    yield
+    await close_redis()
+
+
 app = FastAPI(
     title="chisme",
     description="Retro IRC-style chat — warm CRT aesthetic",
     version="1.0.0",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -68,6 +80,8 @@ app.include_router(messages.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
 app.include_router(gifs.router, prefix="/api")
 app.include_router(dms.router, prefix="/api")
+app.include_router(presence_router, prefix="/api")
+app.include_router(bulk_router, prefix="/api")
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

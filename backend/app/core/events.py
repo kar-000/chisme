@@ -17,3 +17,5 @@ USER_LEFT = "user.left"
 USER_TYPING = "user.typing"
 
 CHANNEL_CREATED = "channel.created"
+
+PRESENCE_CHANGED = "presence.changed"

@@ -82,11 +82,14 @@ class TestChannelWebSocket:
         with client.websocket_connect(f"/ws/channels/{channel_id}") as ws1:
             ws1.send_json({"type": "auth", "token": token1})
             ws1.receive_json()  # ws1's user.joined
+            ws1.receive_json()  # ws1's presence.changed (online)
 
             with client.websocket_connect(f"/ws/channels/{channel_id}") as ws2:
                 ws2.send_json({"type": "auth", "token": token2})
-                ws1.receive_json()  # ws1 sees ws2 join
-                ws2.receive_json()  # ws2 sees its own join
+                ws1.receive_json()  # ws1 sees ws2 user.joined
+                ws1.receive_json()  # ws1 sees ws2 presence.changed (online)
+                ws2.receive_json()  # ws2's own user.joined
+                ws2.receive_json()  # ws2's own presence.changed (online)
 
                 ws2.send_json({"type": "user.typing"})
 
