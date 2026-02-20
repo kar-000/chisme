@@ -18,6 +18,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://localhost:8100',
+      '/uploads': 'http://localhost:8100',
       '/ws': { target: 'ws://localhost:8100', ws: true },
     },
   },
