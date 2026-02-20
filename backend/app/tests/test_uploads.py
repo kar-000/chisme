@@ -1,6 +1,7 @@
 """Tests for file upload endpoint and attachment behaviour."""
 
 import io
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -174,3 +175,61 @@ class TestAttachmentInMessages:
         feed = client.get(f"/api/channels/{channel['id']}/messages", headers=headers).json()
         msg_ids_in_feed = [m["id"] for m in feed["messages"]]
         assert msg_id not in msg_ids_in_feed
+
+
+class TestThumbnailGeneration:
+    """Tests for image thumbnail auto-generation on upload."""
+
+    _PNG = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00"
+        b"\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18"
+        b"\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    _PDF = b"%PDF-1.4 fake-pdf-content"
+
+    def test_image_upload_generates_thumbnail(self, client: TestClient):
+        """When Pillow is available, uploading an image returns thumbnail_url."""
+        headers = auth_headers(client)
+
+        # Patch generate_thumbnail to return a fake thumb filename without needing Pillow
+        with patch("app.api.uploads.generate_thumbnail", return_value="thumb_abc123.jpg"):
+            resp = client.post(
+                "/api/upload",
+                files={"file": ("photo.png", io.BytesIO(self._PNG), "image/png")},
+                headers=headers,
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["thumbnail_url"] == "/uploads/thumb_abc123.jpg"
+        assert data["url"].startswith("/uploads/")
+
+    def test_non_image_has_no_thumbnail(self, client: TestClient):
+        """Non-image uploads should not have a thumbnail_url."""
+        headers = auth_headers(client)
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("doc.pdf", io.BytesIO(self._PDF), "application/pdf")},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("thumbnail_url") is None
+
+    def test_thumbnail_url_null_when_generate_fails(self, client: TestClient):
+        """If generate_thumbnail returns None (e.g. PIL missing), thumbnail_url is null."""
+        headers = auth_headers(client)
+
+        with patch("app.api.uploads.generate_thumbnail", return_value=None):
+            resp = client.post(
+                "/api/upload",
+                files={"file": ("photo.png", io.BytesIO(self._PNG), "image/png")},
+                headers=headers,
+            )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("thumbnail_url") is None
+        # Main image URL still present
+        assert data["url"].startswith("/uploads/")

@@ -22,6 +22,8 @@ class Attachment(Base):
     mime_type = Column(String(100), nullable=False)
     size = Column(Integer, nullable=False)                   # bytes
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    external_url = Column(String(2048), nullable=True)       # Tenor/CDN URL (no local file)
+    thumbnail_filename = Column(String(255), nullable=True)  # thumb_{uuid}.jpg for images
 
     # Relationships
     message = relationship("Message", back_populates="attachments")

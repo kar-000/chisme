@@ -6,7 +6,21 @@ import useChatStore from '../../store/chatStore'
 
 vi.mock('../../store/chatStore', () => ({ default: vi.fn() }))
 vi.mock('../../services/uploads', () => ({
-  uploadFile: vi.fn(() => Promise.resolve({ id: 99, url: '/uploads/x.png', mime_type: 'image/png', size: 100, original_filename: 'x.png' })),
+  uploadFile: vi.fn(() => Promise.resolve({ data: { id: 99, url: '/uploads/x.png', mime_type: 'image/png', size: 100, original_filename: 'x.png' } })),
+}))
+vi.mock('../../services/gifs', () => ({
+  attachGif: vi.fn(() => Promise.resolve({ data: { id: 101, url: 'https://tenor.com/a.gif', mime_type: 'image/gif', size: 0, original_filename: 'funny.gif' } })),
+}))
+// GifPicker is rendered conditionally; stub it to keep tests simple
+vi.mock('./GifPicker', () => ({
+  default: ({ onSelect, onClose }) => (
+    <div data-testid="gif-picker-mock">
+      <button data-testid="mock-select-gif" onClick={() => onSelect({ id: 'g1', url: 'https://tenor.com/g1.gif', title: 'wave', width: 100, height: 80 })}>
+        pick
+      </button>
+      <button data-testid="mock-close-gif" onClick={onClose}>close</button>
+    </div>
+  ),
 }))
 
 beforeAll(() => {
@@ -159,5 +173,38 @@ describe('MessageInput', () => {
     render(<MessageInput />)
     await userEvent.click(screen.getByTestId('cancel-reply'))
     expect(mockClearReplyingTo).toHaveBeenCalled()
+  })
+
+  // GIF button tests
+  it('renders the GIF button', () => {
+    render(<MessageInput />)
+    expect(screen.getByTestId('gif-button')).toBeInTheDocument()
+  })
+
+  it('clicking GIF button shows the GIF picker', async () => {
+    render(<MessageInput />)
+    expect(screen.queryByTestId('gif-picker-mock')).toBeNull()
+    await userEvent.click(screen.getByTestId('gif-button'))
+    expect(screen.getByTestId('gif-picker-mock')).toBeInTheDocument()
+  })
+
+  it('GIF picker is hidden by default', () => {
+    render(<MessageInput />)
+    expect(screen.queryByTestId('gif-picker-mock')).toBeNull()
+  })
+
+  it('selecting a GIF calls addPendingAttachment and attachGif', async () => {
+    render(<MessageInput />)
+    await userEvent.click(screen.getByTestId('gif-button'))
+    await userEvent.click(screen.getByTestId('mock-select-gif'))
+    expect(mockAddPendingAttachment).toHaveBeenCalledWith(null)
+  })
+
+  it('closing GIF picker hides it', async () => {
+    render(<MessageInput />)
+    await userEvent.click(screen.getByTestId('gif-button'))
+    expect(screen.getByTestId('gif-picker-mock')).toBeInTheDocument()
+    await userEvent.click(screen.getByTestId('mock-close-gif'))
+    expect(screen.queryByTestId('gif-picker-mock')).toBeNull()
   })
 })
