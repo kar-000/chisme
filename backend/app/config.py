@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
-    # Tenor GIF API (v2)
-    TENOR_API_KEY: str = "AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk"
+    # Tenor GIF API (v2) — set in .env (console.cloud.google.com → enable Tenor API → create key)
+    TENOR_API_KEY: str = ""
     TENOR_API_BASE: str = "https://tenor.googleapis.com/v2"
     TENOR_SEARCH_LIMIT: int = 20
 

@@ -1,11 +1,8 @@
 """Tenor GIF search proxy and attachment creation."""
 
-import json
-import urllib.error
-import urllib.parse
-import urllib.request
 from typing import List
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -50,13 +47,19 @@ class GifAttachRequest(BaseModel):
 def _tenor_fetch(path: str, params: dict) -> dict:
     """Call the Tenor v2 API and return the parsed JSON response."""
     params["key"] = settings.TENOR_API_KEY
-    params["media_filter"] = "gif"
-    qs = urllib.parse.urlencode(params)
-    url = f"{settings.TENOR_API_BASE}/{path}?{qs}"
+    params["media_filter"] = "tinygif,nanogif"
+    url = f"{settings.TENOR_API_BASE}/{path}"
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:  # noqa: S310
-            return json.loads(resp.read())
-    except urllib.error.URLError as exc:
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(url, params=params)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Tenor API error: {exc.response.status_code}",
+        ) from exc
+    except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Tenor API error: {exc}",
@@ -67,8 +70,8 @@ def _parse_results(data: dict) -> List[GifResult]:
     results = []
     for item in data.get("results", []):
         fmts = item.get("media_formats", {})
-        tinygif = fmts.get("tinygif", {})
-        nanogif = fmts.get("nanogif", tinygif)
+        tinygif = fmts.get("tinygif") or fmts.get("gif", {})
+        nanogif = fmts.get("nanogif") or tinygif
         if not tinygif.get("url"):
             continue
         dims = tinygif.get("dims", [0, 0])

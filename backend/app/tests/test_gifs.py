@@ -1,7 +1,6 @@
 """Tests for the GIF search + attach endpoints."""
 
-import json
-
+import httpx
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import auth_headers
@@ -11,8 +10,9 @@ from app.tests.conftest import auth_headers
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _make_tenor_response(results: list | None = None) -> bytes:
-    """Return minimal Tenor v2 JSON response bytes."""
+
+def _make_tenor_response(results: list | None = None) -> dict:
+    """Return minimal Tenor v2 JSON response dict."""
     if results is None:
         results = [
             {
@@ -30,23 +30,34 @@ def _make_tenor_response(results: list | None = None) -> bytes:
                 },
             }
         ]
-    return json.dumps({"results": results}).encode()
+    return {"results": results}
 
 
-class _FakeResponse:
-    """Minimal file-like object that mimics urllib HTTP response."""
+def _fake_httpx_client(captured: list, response_data: dict):
+    """Return a fake httpx.Client class that records calls and returns canned data."""
 
-    def __init__(self, data: bytes):
-        self._data = data
+    class _FakeResponse:
+        def raise_for_status(self):
+            pass
 
-    def read(self) -> bytes:
-        return self._data
+        def json(self):
+            return response_data
 
-    def __enter__(self):
-        return self
+    class _FakeClient:
+        def __init__(self, **kwargs):
+            pass
 
-    def __exit__(self, *args):
-        pass
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, params=None, **kwargs):
+            captured.append({"url": url, "params": dict(params or {})})
+            return _FakeResponse()
+
+    return _FakeClient
 
 
 # ---------------------------------------------------------------------------
@@ -60,15 +71,8 @@ class TestGifSearch:
         assert resp.status_code in (401, 403)
 
     def test_search_returns_gif_list(self, client: TestClient, monkeypatch):
-        import urllib.request
-
-        captured_url: list[str] = []
-
-        def fake_urlopen(url, timeout=10):
-            captured_url.append(url)
-            return _FakeResponse(_make_tenor_response())
-
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        captured: list[dict] = []
+        monkeypatch.setattr(httpx, "Client", _fake_httpx_client(captured, _make_tenor_response()))
 
         headers = auth_headers(client)
         resp = client.get("/api/gifs/search?q=dog", headers=headers)
@@ -83,50 +87,40 @@ class TestGifSearch:
         assert gif["title"] == "funny dog"
         assert gif["width"] == 200
         assert gif["height"] == 150
-        # Should have hit the search endpoint
-        assert "search" in captured_url[0]
-        assert "dog" in captured_url[0]
+        # Should have hit the search endpoint with the right query
+        req = captured[0]
+        assert "search" in req["url"]
+        assert req["params"]["q"] == "dog"
+        # Should request tinygif and nanogif formats (not raw "gif" which omits tinygif)
+        assert "tinygif" in req["params"]["media_filter"]
 
     def test_empty_query_uses_featured(self, client: TestClient, monkeypatch):
-        import urllib.request
-
-        captured_url: list[str] = []
-
-        def fake_urlopen(url, timeout=10):
-            captured_url.append(url)
-            return _FakeResponse(_make_tenor_response())
-
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        captured: list[dict] = []
+        monkeypatch.setattr(httpx, "Client", _fake_httpx_client(captured, _make_tenor_response()))
 
         headers = auth_headers(client)
         resp = client.get("/api/gifs/search", headers=headers)
         assert resp.status_code == 200
         # Empty q → featured endpoint
-        assert "featured" in captured_url[0]
+        assert "featured" in captured[0]["url"]
+        # Should request tinygif and nanogif formats
+        assert "tinygif" in captured[0]["params"]["media_filter"]
 
     def test_limit_is_capped(self, client: TestClient, monkeypatch):
-        import urllib.request
         import app.api.gifs as gifs_module
 
-        captured_url: list[str] = []
-
-        def fake_urlopen(url, timeout=10):
-            captured_url.append(url)
-            return _FakeResponse(_make_tenor_response([]))
-
-        monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+        captured: list[dict] = []
+        monkeypatch.setattr(httpx, "Client", _fake_httpx_client(captured, _make_tenor_response([])))
         monkeypatch.setattr(gifs_module.settings, "TENOR_SEARCH_LIMIT", 5)
 
         headers = auth_headers(client)
         resp = client.get("/api/gifs/search?q=cat&limit=100", headers=headers)
         assert resp.status_code == 200
         # The actual limit passed to Tenor should be capped at 5
-        assert "limit=5" in captured_url[0]
+        assert captured[0]["params"]["limit"] == 5
 
     def test_search_skips_results_without_tinygif(self, client: TestClient, monkeypatch):
-        import urllib.request
-
-        raw = _make_tenor_response(
+        response_data = _make_tenor_response(
             [
                 {
                     "id": "bad",
@@ -146,7 +140,8 @@ class TestGifSearch:
             ]
         )
 
-        monkeypatch.setattr(urllib.request, "urlopen", lambda url, timeout=10: _FakeResponse(raw))
+        captured: list[dict] = []
+        monkeypatch.setattr(httpx, "Client", _fake_httpx_client(captured, response_data))
 
         headers = auth_headers(client)
         resp = client.get("/api/gifs/search?q=test", headers=headers)
