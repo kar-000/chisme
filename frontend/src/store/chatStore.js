@@ -139,6 +139,23 @@ const useChatStore = create((set, get) => ({
 
   clearPendingAttachments: () => set({ pendingAttachments: [] }),
 
+  /* ── Voice counts (per-channel, for sidebar indicator) ───────── */
+  // Absolute set — used when we receive a voice.state_snapshot
+  setChannelVoiceCount: (channelId, count) =>
+    set((s) => ({
+      channels: s.channels.map((c) =>
+        c.id === channelId ? { ...c, voice_count: Math.max(0, count) } : c
+      ),
+    })),
+
+  // Delta update — used on voice.user_joined (+1) / voice.user_left (-1)
+  adjustChannelVoiceCount: (channelId, delta) =>
+    set((s) => ({
+      channels: s.channels.map((c) =>
+        c.id === channelId ? { ...c, voice_count: Math.max(0, (c.voice_count ?? 0) + delta) } : c
+      ),
+    })),
+
   /* ── Reply ────────────────────────────────────────────────────── */
   setReplyingTo: (message) => set({ replyingTo: message }),
   clearReplyingTo: () => set({ replyingTo: null }),

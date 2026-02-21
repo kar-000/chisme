@@ -65,6 +65,11 @@ export default function ChannelList({ onNavigate }) {
                 >
                   <span className="text-[var(--text-muted)]">#</span>
                   <span className="truncate flex-1">{ch.name}</span>
+                  {ch.voice_count > 0 && (
+                    <span className="text-xs font-mono text-[var(--accent-teal)] shrink-0 flex items-center gap-0.5">
+                      🎤{ch.voice_count}
+                    </span>
+                  )}
                   {!isActive && unread > 0 && (
                     <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full
                                      bg-[var(--crt-orange)] text-[var(--crt-dark)] shrink-0">

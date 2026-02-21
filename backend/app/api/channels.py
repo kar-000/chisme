@@ -12,6 +12,7 @@ from app.models.channel import Channel
 from app.models.message import Message
 from app.models.read_receipt import ReadReceipt
 from app.models.user import User
+from app.redis import voice as voice_mgr
 from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
 from app.websocket.manager import manager
@@ -68,10 +69,21 @@ async def list_channels(
     channel_ids = [c.id for c in channels]
     unread = _unread_counts(channel_ids, current_user.id, db)
 
+    # Batch-fetch voice participant counts from Redis
+    voice_user_lists = await asyncio.gather(
+        *[voice_mgr.get_channel_voice_users(cid) for cid in channel_ids],
+        return_exceptions=True,
+    )
+    voice_counts = {
+        cid: len(result) if isinstance(result, list) else 0
+        for cid, result in zip(channel_ids, voice_user_lists, strict=False)
+    }
+
     results = []
     for c in channels:
         resp = ChannelResponse.model_validate(c)
         resp.unread_count = unread.get(c.id, 0)
+        resp.voice_count = voice_counts.get(c.id, 0)
         results.append(resp)
     return results
 
