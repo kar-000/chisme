@@ -3,6 +3,7 @@ import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import Message from './Message'
+import MessageSkeleton from './MessageSkeleton'
 import MessageInput from './MessageInput'
 import TypingIndicator from './TypingIndicator'
 import Header from '../Layout/Header'
@@ -36,9 +37,7 @@ export default function MessageFeed() {
 
       {/* Messages scroll area */}
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-0.5 min-h-0">
-        {loadingMessages && (
-          <p className="text-center text-xs text-[var(--text-muted)] py-4">Loading…</p>
-        )}
+        {loadingMessages && <MessageSkeleton />}
         {!loadingMessages && messages.length === 0 && (
           <p className="text-center text-xs text-[var(--text-muted)] py-8">
             No messages yet. Say something!

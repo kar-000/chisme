@@ -2,8 +2,8 @@
 Voice state manager — tracks who is in a voice channel in Redis.
 
 Key scheme:
-  voice:{channel_id}:users   →  Redis set of user_id strings
-  voice:user:{user_id}       →  JSON blob with mute/video/channel state
+  {SERVER_DOMAIN}:voice:{channel_id}:users  →  Redis set of user_id strings
+  {SERVER_DOMAIN}:voice:user:{user_id}       →  JSON blob with mute/video/channel state
   TTL = REDIS_PRESENCE_TTL seconds (default 300 s).
 
 If Redis is unavailable every call is a no-op and queries return empty data.
@@ -14,16 +14,9 @@ import logging
 
 from app.config import settings
 from app.redis.client import get_redis
+from app.redis.keys import voice_channel_key, voice_user_key
 
 logger = logging.getLogger(__name__)
-
-
-def _chan_key(channel_id: int) -> str:
-    return f"voice:{channel_id}:users"
-
-
-def _user_key(user_id: int) -> str:
-    return f"voice:user:{user_id}"
 
 
 async def join_voice(channel_id: int, user_id: int, muted: bool = False, video: bool = False) -> None:
@@ -33,10 +26,10 @@ async def join_voice(channel_id: int, user_id: int, muted: bool = False, video: 
         return
     try:
         pipe = r.pipeline()
-        pipe.sadd(_chan_key(channel_id), str(user_id))
-        pipe.expire(_chan_key(channel_id), settings.REDIS_PRESENCE_TTL)
+        pipe.sadd(voice_channel_key(channel_id), str(user_id))
+        pipe.expire(voice_channel_key(channel_id), settings.REDIS_PRESENCE_TTL)
         state = json.dumps({"channel_id": channel_id, "muted": muted, "video": video})
-        pipe.setex(_user_key(user_id), settings.REDIS_PRESENCE_TTL, state)
+        pipe.setex(voice_user_key(user_id), settings.REDIS_PRESENCE_TTL, state)
         await pipe.execute()
     except Exception as exc:
         logger.warning("voice.join_voice failed: %s", exc)
@@ -49,8 +42,8 @@ async def leave_voice(channel_id: int, user_id: int) -> None:
         return
     try:
         pipe = r.pipeline()
-        pipe.srem(_chan_key(channel_id), str(user_id))
-        pipe.delete(_user_key(user_id))
+        pipe.srem(voice_channel_key(channel_id), str(user_id))
+        pipe.delete(voice_user_key(user_id))
         await pipe.execute()
     except Exception as exc:
         logger.warning("voice.leave_voice failed: %s", exc)
@@ -63,7 +56,7 @@ async def update_state(user_id: int, channel_id: int, muted: bool, video: bool) 
         return
     try:
         state = json.dumps({"channel_id": channel_id, "muted": muted, "video": video})
-        await r.setex(_user_key(user_id), settings.REDIS_PRESENCE_TTL, state)
+        await r.setex(voice_user_key(user_id), settings.REDIS_PRESENCE_TTL, state)
     except Exception as exc:
         logger.warning("voice.update_state failed: %s", exc)
 
@@ -75,8 +68,8 @@ async def heartbeat(channel_id: int, user_id: int) -> None:
         return
     try:
         pipe = r.pipeline()
-        pipe.expire(_chan_key(channel_id), settings.REDIS_PRESENCE_TTL)
-        pipe.expire(_user_key(user_id), settings.REDIS_PRESENCE_TTL)
+        pipe.expire(voice_channel_key(channel_id), settings.REDIS_PRESENCE_TTL)
+        pipe.expire(voice_user_key(user_id), settings.REDIS_PRESENCE_TTL)
         await pipe.execute()
     except Exception as exc:
         logger.warning("voice.heartbeat failed: %s", exc)
@@ -88,7 +81,7 @@ async def get_channel_voice_users(channel_id: int) -> list[int]:
     if r is None:
         return []
     try:
-        members = await r.smembers(_chan_key(channel_id))
+        members = await r.smembers(voice_channel_key(channel_id))
         return [int(uid) for uid in members]
     except Exception as exc:
         logger.warning("voice.get_channel_voice_users failed: %s", exc)
@@ -101,7 +94,7 @@ async def get_user_voice_state(user_id: int) -> dict | None:
     if r is None:
         return None
     try:
-        raw = await r.get(_user_key(user_id))
+        raw = await r.get(voice_user_key(user_id))
         if raw is None:
             return None
         return json.loads(raw)
@@ -120,7 +113,7 @@ async def get_bulk_voice_states(user_ids: list[int]) -> dict[int, dict | None]:
     try:
         pipe = r.pipeline()
         for uid in user_ids:
-            pipe.get(_user_key(uid))
+            pipe.get(voice_user_key(uid))
         values = await pipe.execute()
         result: dict[int, dict | None] = {}
         for uid, raw in zip(user_ids, values, strict=False):

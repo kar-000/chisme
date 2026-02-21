@@ -36,6 +36,8 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     id: int
     avatar_url: str | None = None
+    display_name: str | None = None
+    bio: str | None = None
     status: str
     created_at: datetime
 
@@ -44,4 +46,6 @@ class UserResponse(UserBase):
 
 class UserUpdate(BaseModel):
     avatar_url: str | None = None
+    display_name: str | None = Field(None, max_length=50)
+    bio: str | None = Field(None, max_length=500)
     status: str | None = Field(None, max_length=100)

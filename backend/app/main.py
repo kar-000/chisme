@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from app.api import auth, channels, dms, gifs, health, messages, uploads, users
+from app.api import auth, channels, dms, gifs, health, messages, search, uploads, users
 from app.api.presence import bulk_router
 from app.api.presence import router as presence_router
 from app.api.voice import router as voice_router
@@ -85,6 +85,7 @@ app.include_router(dms.router, prefix="/api")
 app.include_router(presence_router, prefix="/api")
 app.include_router(bulk_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
