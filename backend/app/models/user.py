@@ -13,6 +13,8 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     avatar_url = Column(String(500), nullable=True)
+    display_name = Column(String(50), nullable=True)
+    bio = Column(String(500), nullable=True)
     # CRT teal palette: status displayed with --crt-teal (#00CED1) in the UI
     status = Column(String(100), default="online")
     is_active = Column(Boolean, default=True)
