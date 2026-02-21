@@ -6,11 +6,11 @@ from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core import events
-from app.core.security import decode_access_token
 from app.models.dm_channel import DirectMessageChannel
 from app.models.user import User
 from app.redis import presence as presence_mgr
 from app.redis import voice as voice_mgr
+from app.services import auth_service
 from app.websocket.manager import manager
 
 logger = logging.getLogger(__name__)
@@ -41,17 +41,7 @@ async def _authenticate(websocket: WebSocket, db: Session) -> User | None:
         return None
 
     token = data.get("token", "")
-    payload = decode_access_token(token)
-    if not payload:
-        await _ws_close(websocket)
-        return None
-
-    user_id = payload.get("sub")
-    try:
-        user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()  # noqa: E712
-    except (TypeError, ValueError):
-        await _ws_close(websocket)
-        return None
+    user = auth_service.get_user_from_token(token, db)
     if not user:
         await _ws_close(websocket)
         return None

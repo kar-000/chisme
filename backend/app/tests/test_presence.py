@@ -12,6 +12,7 @@ Covers:
 import pytest
 
 import app.redis.presence as presence_mod
+from app.redis.keys import presence_key
 from app.tests.conftest import auth_headers
 
 # ---------------------------------------------------------------------------
@@ -88,41 +89,41 @@ def no_redis(monkeypatch):
 @pytest.mark.asyncio
 async def test_set_online_stores_status(patch_redis):
     await presence_mod.set_online(42)
-    assert patch_redis._data["presence:42"] == "online"
-    assert patch_redis._ttls["presence:42"] > 0
+    assert patch_redis._data[presence_key(42)] == "online"
+    assert patch_redis._ttls[presence_key(42)] > 0
 
 
 @pytest.mark.asyncio
 async def test_set_online_custom_status(patch_redis):
     await presence_mod.set_online(7, "away")
-    assert patch_redis._data["presence:7"] == "away"
+    assert patch_redis._data[presence_key(7)] == "away"
 
 
 @pytest.mark.asyncio
 async def test_set_online_invalid_status_is_noop(patch_redis):
     await presence_mod.set_online(9, "invisible")
-    assert "presence:9" not in patch_redis._data
+    assert presence_key(9) not in patch_redis._data
 
 
 @pytest.mark.asyncio
 async def test_set_offline_removes_key(patch_redis):
-    patch_redis._data["presence:1"] = "online"
+    patch_redis._data[presence_key(1)] = "online"
     await presence_mod.set_offline(1)
-    assert "presence:1" not in patch_redis._data
+    assert presence_key(1) not in patch_redis._data
 
 
 @pytest.mark.asyncio
 async def test_heartbeat_refreshes_ttl(patch_redis):
-    patch_redis._data["presence:5"] = "online"
-    patch_redis._ttls["presence:5"] = 10
+    patch_redis._data[presence_key(5)] = "online"
+    patch_redis._ttls[presence_key(5)] = 10
     await presence_mod.heartbeat(5)
     # TTL should be reset to the configured value (not 10)
-    assert patch_redis._ttls["presence:5"] > 10
+    assert patch_redis._ttls[presence_key(5)] > 10
 
 
 @pytest.mark.asyncio
 async def test_get_status_returns_value(patch_redis):
-    patch_redis._data["presence:3"] = "dnd"
+    patch_redis._data[presence_key(3)] = "dnd"
     result = await presence_mod.get_status(3)
     assert result == "dnd"
 
@@ -135,8 +136,8 @@ async def test_get_status_missing_key_returns_offline(patch_redis):
 
 @pytest.mark.asyncio
 async def test_get_bulk_status(patch_redis):
-    patch_redis._data["presence:1"] = "online"
-    patch_redis._data["presence:2"] = "away"
+    patch_redis._data[presence_key(1)] = "online"
+    patch_redis._data[presence_key(2)] = "away"
     result = await presence_mod.get_bulk_status([1, 2, 3])
     assert result[1] == "online"
     assert result[2] == "away"

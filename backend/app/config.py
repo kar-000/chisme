@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_PRESENCE_TTL: int = 300  # seconds — key expires if heartbeat stops
 
+    # Server identity — used to namespace Redis keys and qualify user identities.
+    # Set to your public domain in production (e.g. "chisme-groupa.example.com").
+    # Each independent Chisme deployment should have a unique value.
+    SERVER_DOMAIN: str = "localhost"
+
     # Tenor GIF API (v2) — set in .env (console.cloud.google.com → enable Tenor API → create key)
     TENOR_API_KEY: str = ""
     TENOR_API_BASE: str = "https://tenor.googleapis.com/v2"

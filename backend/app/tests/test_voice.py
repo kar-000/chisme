@@ -14,6 +14,7 @@ import json
 import pytest
 
 import app.redis.voice as voice_mod
+from app.redis.keys import voice_channel_key, voice_user_key
 from app.tests.conftest import auth_headers
 
 # ---------------------------------------------------------------------------
@@ -142,13 +143,13 @@ def no_redis(monkeypatch):
 @pytest.mark.asyncio
 async def test_join_voice_adds_user_to_channel_set(patch_redis):
     await voice_mod.join_voice(channel_id=1, user_id=42)
-    assert "42" in patch_redis._sets.get("voice:1:users", set())
+    assert "42" in patch_redis._sets.get(voice_channel_key(1), set())
 
 
 @pytest.mark.asyncio
 async def test_join_voice_stores_user_state(patch_redis):
     await voice_mod.join_voice(channel_id=1, user_id=42, muted=True, video=False)
-    raw = patch_redis._data.get("voice:user:42")
+    raw = patch_redis._data.get(voice_user_key(42))
     assert raw is not None
     state = json.loads(raw)
     assert state["muted"] is True
@@ -158,17 +159,17 @@ async def test_join_voice_stores_user_state(patch_redis):
 
 @pytest.mark.asyncio
 async def test_leave_voice_removes_user_from_set(patch_redis):
-    patch_redis._sets["voice:1:users"] = {"42"}
-    patch_redis._data["voice:user:42"] = json.dumps({"channel_id": 1, "muted": False, "video": False})
+    patch_redis._sets[voice_channel_key(1)] = {"42"}
+    patch_redis._data[voice_user_key(42)] = json.dumps({"channel_id": 1, "muted": False, "video": False})
     await voice_mod.leave_voice(channel_id=1, user_id=42)
-    assert "42" not in patch_redis._sets.get("voice:1:users", set())
-    assert "voice:user:42" not in patch_redis._data
+    assert "42" not in patch_redis._sets.get(voice_channel_key(1), set())
+    assert voice_user_key(42) not in patch_redis._data
 
 
 @pytest.mark.asyncio
 async def test_update_state_changes_mute(patch_redis):
     await voice_mod.update_state(user_id=5, channel_id=2, muted=True, video=True)
-    raw = patch_redis._data.get("voice:user:5")
+    raw = patch_redis._data.get(voice_user_key(5))
     assert raw is not None
     state = json.loads(raw)
     assert state["muted"] is True
@@ -177,19 +178,19 @@ async def test_update_state_changes_mute(patch_redis):
 
 @pytest.mark.asyncio
 async def test_heartbeat_refreshes_ttl(patch_redis):
-    patch_redis._sets["voice:1:users"] = {"10"}
-    patch_redis._data["voice:user:10"] = json.dumps({"channel_id": 1, "muted": False, "video": False})
-    patch_redis._ttls["voice:user:10"] = 1
+    patch_redis._sets[voice_channel_key(1)] = {"10"}
+    patch_redis._data[voice_user_key(10)] = json.dumps({"channel_id": 1, "muted": False, "video": False})
+    patch_redis._ttls[voice_user_key(10)] = 1
     await voice_mod.heartbeat(channel_id=1, user_id=10)
     # TTL should have been refreshed to REDIS_PRESENCE_TTL
     from app.config import settings
 
-    assert patch_redis._ttls.get("voice:user:10") == settings.REDIS_PRESENCE_TTL
+    assert patch_redis._ttls.get(voice_user_key(10)) == settings.REDIS_PRESENCE_TTL
 
 
 @pytest.mark.asyncio
 async def test_get_channel_voice_users_returns_list(patch_redis):
-    patch_redis._sets["voice:3:users"] = {"1", "2", "3"}
+    patch_redis._sets[voice_channel_key(3)] = {"1", "2", "3"}
     users = await voice_mod.get_channel_voice_users(channel_id=3)
     assert sorted(users) == [1, 2, 3]
 
@@ -203,7 +204,7 @@ async def test_get_channel_voice_users_empty(patch_redis):
 @pytest.mark.asyncio
 async def test_get_user_voice_state_returns_dict(patch_redis):
     state_data = {"channel_id": 1, "muted": False, "video": False}
-    patch_redis._data["voice:user:7"] = json.dumps(state_data)
+    patch_redis._data[voice_user_key(7)] = json.dumps(state_data)
     state = await voice_mod.get_user_voice_state(user_id=7)
     assert state == state_data
 
@@ -216,7 +217,7 @@ async def test_get_user_voice_state_returns_none_when_absent(patch_redis):
 
 @pytest.mark.asyncio
 async def test_get_bulk_voice_states_mixed(patch_redis):
-    patch_redis._data["voice:user:1"] = json.dumps({"channel_id": 1, "muted": True, "video": False})
+    patch_redis._data[voice_user_key(1)] = json.dumps({"channel_id": 1, "muted": True, "video": False})
     result = await voice_mod.get_bulk_voice_states([1, 2])
     assert result[1]["muted"] is True
     assert result[2] is None
@@ -306,8 +307,8 @@ def test_get_voice_channel_with_users(client, patch_redis):
     channel_id = ch_resp.json()["id"]
 
     # Seed fake Redis directly
-    patch_redis._sets[f"voice:{channel_id}:users"] = {"1"}
-    patch_redis._data["voice:user:1"] = json.dumps({"channel_id": channel_id, "muted": True, "video": False})
+    patch_redis._sets[voice_channel_key(channel_id)] = {"1"}
+    patch_redis._data[voice_user_key(1)] = json.dumps({"channel_id": channel_id, "muted": True, "video": False})
 
     resp = client.get(f"/api/channels/{channel_id}/voice", headers=headers)
     assert resp.status_code == 200
