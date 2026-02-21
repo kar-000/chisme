@@ -9,8 +9,10 @@ import DMView from './components/Chat/DMView'
 import MessageSearch from './components/Common/MessageSearch'
 import ShortcutsModal from './components/Common/ShortcutsModal'
 import ErrorBoundary from './components/Common/ErrorBoundary'
+import { useFaviconBadge } from './hooks/useFaviconBadge'
 
 function ChatLayout() {
+  useFaviconBadge()
   const fetchChannels = useChatStore((s) => s.fetchChannels)
   const activeDmId = useDMStore((s) => s.activeDmId)
   const [searchOpen, setSearchOpen] = useState(false)
