@@ -11,15 +11,14 @@ Covers:
   - voice.state_snapshot sent to newly connected user when voice is occupied
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import register_user
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _register(client: TestClient, username: str, email: str, password: str = "Password1!") -> dict:
     resp = register_user(client, username=username, email=email, password=password)
@@ -49,6 +48,7 @@ def _drain_join_events(ws) -> None:
 # ---------------------------------------------------------------------------
 # Voice join / leave
 # ---------------------------------------------------------------------------
+
 
 class TestVoiceJoinLeave:
     def test_voice_join_broadcasts_user_joined(self, client: TestClient):
@@ -120,6 +120,7 @@ class TestVoiceJoinLeave:
 # Voice signaling relay
 # ---------------------------------------------------------------------------
 
+
 class TestVoiceSignalingRelay:
     def _setup_two_users_in_voice(self, client: TestClient, ch_name: str):
         """Register two users, connect both to a channel, both join voice.
@@ -150,11 +151,13 @@ class TestVoiceSignalingRelay:
                 ws2.receive_json()  # ws2 sees own voice.user_joined broadcast
 
                 # user1 sends offer to user2
-                ws1.send_json({
-                    "type": "voice.offer",
-                    "target_user_id": d2["user"]["id"],
-                    "sdp": {"type": "offer", "sdp": "fake-sdp"},
-                })
+                ws1.send_json(
+                    {
+                        "type": "voice.offer",
+                        "target_user_id": d2["user"]["id"],
+                        "sdp": {"type": "offer", "sdp": "fake-sdp"},
+                    }
+                )
 
                 event = ws2.receive_json()
                 assert event["type"] == "voice.offer"
@@ -180,11 +183,13 @@ class TestVoiceSignalingRelay:
                 ws1.receive_json()
                 ws2.receive_json()
 
-                ws2.send_json({
-                    "type": "voice.answer",
-                    "target_user_id": d1["user"]["id"],
-                    "sdp": {"type": "answer", "sdp": "fake-answer"},
-                })
+                ws2.send_json(
+                    {
+                        "type": "voice.answer",
+                        "target_user_id": d1["user"]["id"],
+                        "sdp": {"type": "answer", "sdp": "fake-answer"},
+                    }
+                )
 
                 event = ws1.receive_json()
                 assert event["type"] == "voice.answer"
@@ -209,11 +214,13 @@ class TestVoiceSignalingRelay:
                 ws1.receive_json()
                 ws2.receive_json()
 
-                ws1.send_json({
-                    "type": "voice.ice_candidate",
-                    "target_user_id": d2["user"]["id"],
-                    "candidate": {"candidate": "candidate:1 udp ...", "sdpMid": "0"},
-                })
+                ws1.send_json(
+                    {
+                        "type": "voice.ice_candidate",
+                        "target_user_id": d2["user"]["id"],
+                        "candidate": {"candidate": "candidate:1 udp ...", "sdpMid": "0"},
+                    }
+                )
 
                 event = ws2.receive_json()
                 assert event["type"] == "voice.ice_candidate"
@@ -237,11 +244,13 @@ class TestVoiceSignalingRelay:
                 ws1.receive_json()  # own voice.user_joined broadcast
 
                 # ws1 tries to signal ws2 who is not in voice
-                ws1.send_json({
-                    "type": "voice.offer",
-                    "target_user_id": d2["user"]["id"],
-                    "sdp": {"type": "offer", "sdp": "fake"},
-                })
+                ws1.send_json(
+                    {
+                        "type": "voice.offer",
+                        "target_user_id": d2["user"]["id"],
+                        "sdp": {"type": "offer", "sdp": "fake"},
+                    }
+                )
 
                 # ws2 should receive nothing — send a typing event and use that as a
                 # sentinel: if ws2 receives typing BEFORE any offer, the offer was dropped
@@ -269,11 +278,13 @@ class TestVoiceSignalingRelay:
                 ws2.receive_json()
 
                 # Send string target_id — should be dropped
-                ws1.send_json({
-                    "type": "voice.offer",
-                    "target_user_id": str(d2["user"]["id"]),  # string, not int
-                    "sdp": {"type": "offer", "sdp": "fake"},
-                })
+                ws1.send_json(
+                    {
+                        "type": "voice.offer",
+                        "target_user_id": str(d2["user"]["id"]),  # string, not int
+                        "sdp": {"type": "offer", "sdp": "fake"},
+                    }
+                )
 
                 # Sentinel: typing event should arrive next, not an offer
                 ws1.send_json({"type": "user.typing"})
@@ -284,6 +295,7 @@ class TestVoiceSignalingRelay:
 # ---------------------------------------------------------------------------
 # Voice state snapshot
 # ---------------------------------------------------------------------------
+
 
 class TestVoiceStateSnapshot:
     def test_snapshot_sent_to_new_connection_when_voice_occupied(self, client: TestClient):

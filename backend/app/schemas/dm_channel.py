@@ -1,6 +1,6 @@
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+
+from pydantic import BaseModel
 
 from app.schemas.user import UserResponse
 
@@ -8,7 +8,7 @@ from app.schemas.user import UserResponse
 class DMChannelResponse(BaseModel):
     id: int
     other_user: UserResponse
-    last_message_at: Optional[datetime] = None
+    last_message_at: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -16,4 +16,4 @@ class DMChannelResponse(BaseModel):
 
 class DMMessageCreate(BaseModel):
     content: str
-    reply_to_id: Optional[int] = None
+    reply_to_id: int | None = None

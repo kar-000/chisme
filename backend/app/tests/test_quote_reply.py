@@ -63,9 +63,7 @@ class TestQuoteReply:
 
     def test_reply_to_message_in_other_channel_fails(self, client: TestClient, headers, message):
         # Create a different channel
-        other_channel = client.post(
-            "/api/channels", json={"name": "other-room"}, headers=headers
-        ).json()
+        other_channel = client.post("/api/channels", json={"name": "other-room"}, headers=headers).json()
 
         # Try to reply to a message from the first channel, posted in the second channel
         resp = client.post(

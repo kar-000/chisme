@@ -10,7 +10,6 @@ Covers:
   - Requires authentication
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.tests.conftest import auth_headers
@@ -37,6 +36,7 @@ def _send(client, headers, channel_id, content):
 # ---------------------------------------------------------------------------
 # GET /api/channels — unread_count field
 # ---------------------------------------------------------------------------
+
 
 class TestUnreadCountInChannelList:
     def test_channel_list_includes_unread_count(self, client: TestClient):
@@ -80,6 +80,7 @@ class TestUnreadCountInChannelList:
 # ---------------------------------------------------------------------------
 # POST /api/channels/{id}/read
 # ---------------------------------------------------------------------------
+
 
 class TestMarkChannelRead:
     def test_mark_read_returns_204(self, client: TestClient):

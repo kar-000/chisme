@@ -24,6 +24,4 @@ class ReadReceipt(Base):
     user = relationship("User")
     channel = relationship("Channel")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "channel_id", name="uq_read_receipt_user_channel"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "channel_id", name="uq_read_receipt_user_channel"),)

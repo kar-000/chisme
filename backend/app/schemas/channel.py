@@ -1,13 +1,13 @@
-from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
-from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.user import UserResponse
 
 
 class ChannelBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=50)
-    description: Optional[str] = Field(None, max_length=500)
+    description: str | None = Field(None, max_length=500)
 
 
 class ChannelCreate(ChannelBase):

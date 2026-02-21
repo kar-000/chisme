@@ -11,12 +11,12 @@ If Redis is unavailable every call is a no-op and queries return empty data.
 
 import json
 import logging
-from typing import Dict, List, Optional
 
 from app.config import settings
 from app.redis.client import get_redis
 
 logger = logging.getLogger(__name__)
+
 
 def _chan_key(channel_id: int) -> str:
     return f"voice:{channel_id}:users"
@@ -82,7 +82,7 @@ async def heartbeat(channel_id: int, user_id: int) -> None:
         logger.warning("voice.heartbeat failed: %s", exc)
 
 
-async def get_channel_voice_users(channel_id: int) -> List[int]:
+async def get_channel_voice_users(channel_id: int) -> list[int]:
     """Return list of user_ids currently in a voice channel."""
     r = get_redis()
     if r is None:
@@ -95,7 +95,7 @@ async def get_channel_voice_users(channel_id: int) -> List[int]:
         return []
 
 
-async def get_user_voice_state(user_id: int) -> Optional[dict]:
+async def get_user_voice_state(user_id: int) -> dict | None:
     """Return the voice state dict for a user, or None if not in voice."""
     r = get_redis()
     if r is None:
@@ -110,7 +110,7 @@ async def get_user_voice_state(user_id: int) -> Optional[dict]:
         return None
 
 
-async def get_bulk_voice_states(user_ids: List[int]) -> Dict[int, Optional[dict]]:
+async def get_bulk_voice_states(user_ids: list[int]) -> dict[int, dict | None]:
     """Return {user_id: state_dict_or_None} for multiple users via pipeline."""
     if not user_ids:
         return {}
@@ -122,8 +122,8 @@ async def get_bulk_voice_states(user_ids: List[int]) -> Dict[int, Optional[dict]
         for uid in user_ids:
             pipe.get(_user_key(uid))
         values = await pipe.execute()
-        result: Dict[int, Optional[dict]] = {}
-        for uid, raw in zip(user_ids, values):
+        result: dict[int, dict | None] = {}
+        for uid, raw in zip(user_ids, values, strict=False):
             result[uid] = json.loads(raw) if raw else None
         return result
     except Exception as exc:

@@ -28,3 +28,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Local dev artifacts
+backend/uploads/
+backend/*.db

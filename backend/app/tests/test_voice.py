@@ -10,15 +10,16 @@ Covers:
 """
 
 import json
+
 import pytest
 
 import app.redis.voice as voice_mod
 from app.tests.conftest import auth_headers
 
-
 # ---------------------------------------------------------------------------
 # Fake async Redis helpers
 # ---------------------------------------------------------------------------
+
 
 class FakeRedis:
     """Minimal in-memory fake that mimics redis.asyncio.Redis for voice tests."""
@@ -118,6 +119,7 @@ class FakePipeline:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def patch_redis(monkeypatch):
     """Replace get_redis() with a FakeRedis for every test in this module."""
@@ -135,6 +137,7 @@ def no_redis(monkeypatch):
 # ---------------------------------------------------------------------------
 # Unit tests — voice module
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_join_voice_adds_user_to_channel_set(patch_redis):
@@ -180,6 +183,7 @@ async def test_heartbeat_refreshes_ttl(patch_redis):
     await voice_mod.heartbeat(channel_id=1, user_id=10)
     # TTL should have been refreshed to REDIS_PRESENCE_TTL
     from app.config import settings
+
     assert patch_redis._ttls.get("voice:user:10") == settings.REDIS_PRESENCE_TTL
 
 
@@ -228,6 +232,7 @@ async def test_get_bulk_voice_states_empty_input(patch_redis):
 # Degradation tests — Redis unavailable
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_join_voice_no_redis_is_noop(no_redis):
     await voice_mod.join_voice(channel_id=1, user_id=42)  # should not raise
@@ -259,6 +264,7 @@ async def test_get_bulk_voice_states_no_redis_returns_none_values(no_redis):
 # ---------------------------------------------------------------------------
 # REST API tests — GET /api/channels/{id}/voice
 # ---------------------------------------------------------------------------
+
 
 def test_get_voice_channel_requires_auth(client):
     resp = client.get("/api/channels/1/voice")
@@ -301,9 +307,7 @@ def test_get_voice_channel_with_users(client, patch_redis):
 
     # Seed fake Redis directly
     patch_redis._sets[f"voice:{channel_id}:users"] = {"1"}
-    patch_redis._data["voice:user:1"] = json.dumps(
-        {"channel_id": channel_id, "muted": True, "video": False}
-    )
+    patch_redis._data["voice:user:1"] = json.dumps({"channel_id": channel_id, "muted": True, "video": False})
 
     resp = client.get(f"/api/channels/{channel_id}/voice", headers=headers)
     assert resp.status_code == 200

@@ -1,8 +1,7 @@
 import asyncio
 from datetime import datetime
-from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -36,8 +35,7 @@ def _unread_counts(channel_ids: list[int], user_id: int, db: Session) -> dict[in
         )
         .outerjoin(
             ReadReceipt,
-            (ReadReceipt.channel_id == Message.channel_id)
-            & (ReadReceipt.user_id == user_id),
+            (ReadReceipt.channel_id == Message.channel_id) & (ReadReceipt.user_id == user_id),
         )
         .filter(
             Message.channel_id.in_(channel_ids),
@@ -53,13 +51,13 @@ def _unread_counts(channel_ids: list[int], user_id: int, db: Session) -> dict[in
     return {row.channel_id: row.cnt for row in rows}
 
 
-@router.get("", response_model=List[ChannelResponse])
+@router.get("", response_model=list[ChannelResponse])
 async def list_channels(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> List[ChannelResponse]:
+) -> list[ChannelResponse]:
     channels = (
         db.query(Channel)
         .filter(Channel.is_private == False)  # noqa: E712
@@ -98,10 +96,14 @@ async def mark_channel_read(
     )
     latest_id = latest[0] if latest else None
 
-    receipt = db.query(ReadReceipt).filter(
-        ReadReceipt.user_id == current_user.id,
-        ReadReceipt.channel_id == channel_id,
-    ).first()
+    receipt = (
+        db.query(ReadReceipt)
+        .filter(
+            ReadReceipt.user_id == current_user.id,
+            ReadReceipt.channel_id == channel_id,
+        )
+        .first()
+    )
 
     if receipt:
         # Only advance — never go backwards (in case of race conditions)
@@ -157,7 +159,7 @@ async def get_channel_messages(
     channel_id: int,
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
-    before: Optional[datetime] = Query(default=None),
+    before: datetime | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageList:
@@ -168,8 +170,7 @@ async def get_channel_messages(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to channel")
 
     query = (
-        db.query(Message)
-        .filter(Message.channel_id == channel_id, Message.is_deleted == False)  # noqa: E712
+        db.query(Message).filter(Message.channel_id == channel_id, Message.is_deleted == False)  # noqa: E712
     )
     if before:
         query = query.filter(Message.created_at < before)
@@ -200,11 +201,15 @@ async def send_message(
 
     # Validate reply_to_id if provided
     if message_in.reply_to_id is not None:
-        parent = db.query(Message).filter(
-            Message.id == message_in.reply_to_id,
-            Message.channel_id == channel_id,
-            Message.is_deleted == False,  # noqa: E712
-        ).first()
+        parent = (
+            db.query(Message)
+            .filter(
+                Message.id == message_in.reply_to_id,
+                Message.channel_id == channel_id,
+                Message.is_deleted == False,  # noqa: E712
+            )
+            .first()
+        )
         if not parent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -234,9 +239,11 @@ async def send_message(
     response = MessageResponse.model_validate(message)
 
     # Broadcast new message to all connected channel clients
-    asyncio.ensure_future(manager.broadcast(
-        channel_id,
-        {"type": "message.new", "message": response.model_dump(mode="json")},
-    ))
+    asyncio.ensure_future(
+        manager.broadcast(
+            channel_id,
+            {"type": "message.new", "message": response.model_dump(mode="json")},
+        )
+    )
 
     return response

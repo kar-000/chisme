@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import List
 
 
 class Settings(BaseSettings):
@@ -7,7 +6,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
@@ -24,7 +23,7 @@ class Settings(BaseSettings):
     # File uploads
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 26_214_400  # 25 MB
-    ALLOWED_MIME_TYPES: List[str] = [
+    ALLOWED_MIME_TYPES: list[str] = [
         "image/jpeg",
         "image/png",
         "image/gif",

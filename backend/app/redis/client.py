@@ -7,7 +7,6 @@ and return None so callers never crash.
 """
 
 import logging
-from typing import Optional
 
 import redis.asyncio as aioredis
 
@@ -15,8 +14,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_pool: Optional[aioredis.ConnectionPool] = None
-_client: Optional[aioredis.Redis] = None
+_pool: aioredis.ConnectionPool | None = None
+_client: aioredis.Redis | None = None
 
 
 async def init_redis() -> None:
@@ -50,6 +49,6 @@ async def close_redis() -> None:
         _pool = None
 
 
-def get_redis() -> Optional[aioredis.Redis]:
+def get_redis() -> aioredis.Redis | None:
     """Return the live Redis client, or None if unavailable."""
     return _client

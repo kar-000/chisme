@@ -1,7 +1,6 @@
 import json
 import logging
 from collections import defaultdict
-from typing import Dict
 
 from fastapi import WebSocket
 
@@ -18,12 +17,12 @@ class ConnectionManager:
 
     def __init__(self) -> None:
         # channel_id -> {user_id: WebSocket}
-        self._connections: Dict[int, Dict[int, WebSocket]] = defaultdict(dict)
+        self._connections: dict[int, dict[int, WebSocket]] = defaultdict(dict)
         # dm_channel_id -> {user_id: WebSocket}
-        self._dm_connections: Dict[int, Dict[int, WebSocket]] = defaultdict(dict)
+        self._dm_connections: dict[int, dict[int, WebSocket]] = defaultdict(dict)
         # channel_id -> {user_id: {user_id, username, muted, video}}
         # In-memory voice state — no Redis dependency for presence snapshots.
-        self._voice_users: Dict[int, Dict[int, dict]] = defaultdict(dict)
+        self._voice_users: dict[int, dict[int, dict]] = defaultdict(dict)
 
     # ------------------------------------------------------------------
     # Channel connections

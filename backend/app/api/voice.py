@@ -5,8 +5,6 @@ Endpoints:
   GET /api/channels/{channel_id}/voice   → list of users currently in voice
 """
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -28,7 +26,7 @@ class VoiceUser(BaseModel):
 
 class VoiceChannelResponse(BaseModel):
     channel_id: int
-    users: List[VoiceUser]
+    users: list[VoiceUser]
 
 
 @router.get("/{channel_id}/voice", response_model=VoiceChannelResponse)
