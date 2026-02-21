@@ -29,5 +29,6 @@ class ChannelResponse(ChannelBase):
     creator: UserResponse
 
     unread_count: int = 0
+    voice_count: int = 0
 
     model_config = {"from_attributes": True}

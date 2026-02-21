@@ -30,6 +30,8 @@ export function useWebSocket(channelId, token) {
   const setVoiceUser = useChatStore((s) => s.setVoiceUser)
   const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
   const pushVoiceSignal = useChatStore((s) => s.pushVoiceSignal)
+  const setChannelVoiceCount = useChatStore((s) => s.setChannelVoiceCount)
+  const adjustChannelVoiceCount = useChatStore((s) => s.adjustChannelVoiceCount)
   const typingTimeouts = useRef({})
 
   const connect = useCallback(() => {
@@ -91,6 +93,7 @@ export function useWebSocket(channelId, token) {
         // Voice snapshot on connect: populate all current voice users at once
         case 'voice.state_snapshot':
           data.users.forEach((u) => setVoiceUser(u.user_id, u))
+          setChannelVoiceCount(data.channel_id, data.users.length)
           break
         // Voice broadcast events → update store
         case 'voice.user_joined':
@@ -100,9 +103,11 @@ export function useWebSocket(channelId, token) {
             muted: data.muted,
             video: data.video,
           })
+          adjustChannelVoiceCount(data.channel_id, 1)
           break
         case 'voice.user_left':
           removeVoiceUser(data.user_id)
+          adjustChannelVoiceCount(data.channel_id, -1)
           break
         case 'voice.state_changed':
           setVoiceUser(data.user_id, { muted: data.muted, video: data.video })
@@ -137,7 +142,7 @@ export function useWebSocket(channelId, token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers, setVoiceUser, removeVoiceUser, pushVoiceSignal])
+  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers, setVoiceUser, removeVoiceUser, pushVoiceSignal, setChannelVoiceCount, adjustChannelVoiceCount])
 
   const sendTyping = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
