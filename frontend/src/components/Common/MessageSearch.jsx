@@ -14,12 +14,14 @@ function formatDate(iso) {
  */
 export default function MessageSearch({ onClose }) {
   const [query, setQuery] = useState('')
+  const [channelFilter, setChannelFilter] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const inputRef = useRef(null)
   const timerRef = useRef(null)
 
+  const channels = useChatStore((s) => s.channels)
   const { selectChannel } = useChatStore()
   const closeDM = useDMStore((s) => s.closeDM)
 
@@ -27,7 +29,7 @@ export default function MessageSearch({ onClose }) {
     inputRef.current?.focus()
   }, [])
 
-  const runSearch = async (q) => {
+  const runSearch = async (q, chId) => {
     if (!q.trim()) {
       setResults([])
       setSearched(false)
@@ -35,7 +37,7 @@ export default function MessageSearch({ onClose }) {
     }
     setLoading(true)
     try {
-      const res = await searchMessages(q.trim())
+      const res = await searchMessages(q.trim(), chId || undefined)
       setResults(res.data.results)
       setSearched(true)
     } catch {
@@ -49,7 +51,13 @@ export default function MessageSearch({ onClose }) {
     const val = e.target.value
     setQuery(val)
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => runSearch(val), 400)
+    timerRef.current = setTimeout(() => runSearch(val, channelFilter), 400)
+  }
+
+  const handleChannelFilter = (e) => {
+    const val = e.target.value
+    setChannelFilter(val)
+    if (query.trim()) runSearch(query, val)
   }
 
   const handleSelect = (result) => {
@@ -93,6 +101,25 @@ export default function MessageSearch({ onClose }) {
           >
             ×
           </button>
+        </div>
+
+        {/* Channel filter */}
+        <div className="px-4 py-2 border-b border-[var(--border)] flex items-center gap-2">
+          <span className="text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-widest shrink-0">
+            Channel
+          </span>
+          <select
+            value={channelFilter}
+            onChange={handleChannelFilter}
+            className="flex-1 bg-black/40 border border-[var(--border)] rounded px-2 py-0.5
+                       text-xs font-mono text-[var(--text-primary)] focus:outline-none
+                       focus:border-[var(--border-glow)]"
+          >
+            <option value="">All channels</option>
+            {channels.map((ch) => (
+              <option key={ch.id} value={ch.id}>#{ch.name}</option>
+            ))}
+          </select>
         </div>
 
         {/* Results */}
