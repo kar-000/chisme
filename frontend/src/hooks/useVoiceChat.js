@@ -54,6 +54,7 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
       const existing = document.querySelector(`audio[data-peer-id="${remoteUserId}"]`)
       if (existing) {
         existing.srcObject = ev.streams[0]
+        existing.play().catch((err) => console.warn('useVoiceChat: audio resume blocked', err))
         return
       }
       const audio = document.createElement('audio')
@@ -61,6 +62,9 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
       audio.autoplay = true
       audio.setAttribute('data-peer-id', String(remoteUserId))
       document.body.appendChild(audio)
+      // autoplay attribute alone is not reliable for MediaStream sources —
+      // explicit play() is required by most browsers.
+      audio.play().catch((err) => console.warn('useVoiceChat: audio play blocked', err))
     }
 
     pc.onconnectionstatechange = () => {
