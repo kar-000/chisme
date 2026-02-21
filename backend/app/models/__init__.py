@@ -4,3 +4,4 @@ from app.models.dm_channel import DirectMessageChannel as DirectMessageChannel
 from app.models.message import Message as Message
 from app.models.reaction import Reaction as Reaction
 from app.models.attachment import Attachment as Attachment
+from app.models.read_receipt import ReadReceipt as ReadReceipt

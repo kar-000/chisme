@@ -18,10 +18,6 @@ from app.redis.client import get_redis
 
 logger = logging.getLogger(__name__)
 
-_CHANNEL_KEY = "voice:{channel_id}:users"
-_USER_KEY = "voice:user:{user_id}"
-
-
 def _chan_key(channel_id: int) -> str:
     return f"voice:{channel_id}:users"
 

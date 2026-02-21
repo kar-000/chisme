@@ -6,7 +6,7 @@ import Input from '../Common/Input'
 import Button from '../Common/Button'
 
 export default function ChannelList() {
-  const { channels, activeChannelId, selectChannel, createChannel } = useChatStore()
+  const { channels, activeChannelId, unreadCounts, selectChannel, createChannel } = useChatStore()
   const closeDM = useDMStore((s) => s.closeDM)
   const [showModal, setShowModal] = useState(false)
   const [name, setName] = useState('')
@@ -45,24 +45,36 @@ export default function ChannelList() {
         </div>
 
         <ul className="flex-1 overflow-y-auto">
-          {channels.map((ch) => (
-            <li key={ch.id}>
-              <button
-                onClick={() => { closeDM(); selectChannel(ch.id) }}
-                className={`
-                  w-full text-left px-4 py-2 text-sm flex items-center gap-1
-                  border-l-2 transition-all duration-150
-                  ${activeChannelId === ch.id
-                    ? 'border-[var(--accent-teal)] bg-[var(--bg-active)] text-[var(--text-primary)] glow-teal'
-                    : 'border-transparent text-[var(--text-lt)] hover:bg-[var(--bg-hover)] hover:border-[var(--accent-teal)]'
-                  }
-                `}
-              >
-                <span className="text-[var(--text-muted)]">#</span>
-                <span className="truncate">{ch.name}</span>
-              </button>
-            </li>
-          ))}
+          {channels.map((ch) => {
+            const unread = unreadCounts?.[ch.id] ?? 0
+            const isActive = activeChannelId === ch.id
+            return (
+              <li key={ch.id}>
+                <button
+                  onClick={() => { closeDM(); selectChannel(ch.id) }}
+                  className={`
+                    w-full text-left px-4 py-2 text-sm flex items-center gap-1
+                    border-l-2 transition-all duration-150
+                    ${isActive
+                      ? 'border-[var(--accent-teal)] bg-[var(--bg-active)] text-[var(--text-primary)] glow-teal'
+                      : unread > 0
+                        ? 'border-[var(--crt-orange)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                        : 'border-transparent text-[var(--text-lt)] hover:bg-[var(--bg-hover)] hover:border-[var(--accent-teal)]'
+                    }
+                  `}
+                >
+                  <span className="text-[var(--text-muted)]">#</span>
+                  <span className="truncate flex-1">{ch.name}</span>
+                  {!isActive && unread > 0 && (
+                    <span className="ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full
+                                     bg-[var(--crt-orange)] text-[var(--crt-dark)] shrink-0">
+                      {unread > 99 ? '99+' : unread}
+                    </span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
         </ul>
       </div>
 
@@ -74,7 +86,7 @@ export default function ChannelList() {
             <>
               <Button variant="ghost" type="button" onClick={() => setShowModal(false)}>Cancel</Button>
               <Button type="submit" form="new-channel-form" disabled={creating}>
-                {creating ? 'Creating…' : 'Create'}
+                {creating ? 'Creating...' : 'Create'}
               </Button>
             </>
           }

@@ -49,8 +49,13 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
       }
     }
 
-    // Remote track → play audio
+    // Remote track → play audio (guard against duplicate elements on renegotiation)
     pc.ontrack = (ev) => {
+      const existing = document.querySelector(`audio[data-peer-id="${remoteUserId}"]`)
+      if (existing) {
+        existing.srcObject = ev.streams[0]
+        return
+      }
       const audio = document.createElement('audio')
       audio.srcObject = ev.streams[0]
       audio.autoplay = true
@@ -98,45 +103,47 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
   useEffect(() => {
     if (!inVoice || pendingVoiceSignals.length === 0) return
     const signals = consumeVoiceSignals()
-    signals.forEach(async (sig) => {
-      if (!inVoiceRef.current) return
-      const { type, from_user_id, sdp, candidate } = sig
+    ;(async () => {
+      for (const sig of signals) {
+        if (!inVoiceRef.current) break
+        const { type, from_user_id, sdp, candidate } = sig
 
-      if (type === 'voice.offer') {
-        let pc = peersRef.current[from_user_id]
-        if (!pc) pc = createPeer(from_user_id, false)
-        try {
-          await pc.setRemoteDescription(new RTCSessionDescription(sdp))
-          const answer = await pc.createAnswer()
-          await pc.setLocalDescription(answer)
-          sendMsg({
-            type: 'voice.answer',
-            target_user_id: from_user_id,
-            sdp: pc.localDescription,
-          })
-        } catch (err) {
-          console.error('useVoiceChat: answer error', err)
-        }
-      } else if (type === 'voice.answer') {
-        const pc = peersRef.current[from_user_id]
-        if (pc && pc.signalingState !== 'stable') {
+        if (type === 'voice.offer') {
+          let pc = peersRef.current[from_user_id]
+          if (!pc) pc = createPeer(from_user_id, false)
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+            const answer = await pc.createAnswer()
+            await pc.setLocalDescription(answer)
+            sendMsg({
+              type: 'voice.answer',
+              target_user_id: from_user_id,
+              sdp: pc.localDescription,
+            })
           } catch (err) {
-            console.error('useVoiceChat: setRemoteDescription error', err)
+            console.error('useVoiceChat: answer error', err)
           }
-        }
-      } else if (type === 'voice.ice_candidate') {
-        const pc = peersRef.current[from_user_id]
-        if (pc) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate))
-          } catch (err) {
-            console.error('useVoiceChat: addIceCandidate error', err)
+        } else if (type === 'voice.answer') {
+          const pc = peersRef.current[from_user_id]
+          if (pc && pc.signalingState !== 'stable') {
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(sdp))
+            } catch (err) {
+              console.error('useVoiceChat: setRemoteDescription error', err)
+            }
+          }
+        } else if (type === 'voice.ice_candidate') {
+          const pc = peersRef.current[from_user_id]
+          if (pc) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate))
+            } catch (err) {
+              console.error('useVoiceChat: addIceCandidate error', err)
+            }
           }
         }
       }
-    })
+    })()
   }, [pendingVoiceSignals, inVoice, consumeVoiceSignals, createPeer, sendMsg])
 
   // ── When a new voice user joins (while we're in voice), initiate offer ─────

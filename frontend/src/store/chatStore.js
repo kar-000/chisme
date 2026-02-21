@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { listChannels, createChannel, getMessages, sendMessage } from '../services/channels'
+import { listChannels, createChannel, getMessages, sendMessage, markChannelRead } from '../services/channels'
 import { addReaction, removeReaction, editMessage, deleteMessage } from '../services/messages'
 
 let _nextTempId = 1
@@ -19,10 +19,16 @@ const useChatStore = create((set, get) => ({
   // Quote-reply: the message being replied to (or null)
   replyingTo: null,
 
+  // Unread counts: { [channelId]: number } — populated from API, cleared on select
+  unreadCounts: {},
+
   /* ── Channels ─────────────────────────────────────────────────── */
   fetchChannels: async () => {
     const { data } = await listChannels({ limit: 100 })
-    set({ channels: data })
+    // Populate unread counts from the server response
+    const unreadCounts = {}
+    data.forEach((c) => { unreadCounts[c.id] = c.unread_count ?? 0 })
+    set({ channels: data, unreadCounts })
     if (!get().activeChannelId && data.length > 0) {
       const general = data.find((c) => c.name === 'general') ?? data[0]
       get().selectChannel(general.id)
@@ -36,8 +42,21 @@ const useChatStore = create((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
-    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null, voiceUsers: {}, pendingVoiceSignals: [] })
+    // Clear unread badge immediately (optimistic)
+    set((s) => ({
+      activeChannelId: channelId,
+      messages: [],
+      messagesTotal: 0,
+      typingUsers: [],
+      pendingAttachments: [],
+      replyingTo: null,
+      voiceUsers: {},
+      pendingVoiceSignals: [],
+      unreadCounts: { ...s.unreadCounts, [channelId]: 0 },
+    }))
     get().fetchMessages(channelId)
+    // Persist read position on the server (fire-and-forget)
+    markChannelRead(channelId).catch(() => {})
   },
 
   clearActiveChannel: () => {
@@ -184,8 +203,6 @@ const useChatStore = create((set, get) => ({
       delete next[userId]
       return { voiceUsers: next }
     }),
-
-  clearVoiceUsers: () => set({ voiceUsers: {}, pendingVoiceSignals: [] }),
 
   pushVoiceSignal: (signal) =>
     set((s) => ({ pendingVoiceSignals: [...s.pendingVoiceSignals, signal] })),

@@ -164,10 +164,10 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
 
                 elif event_type == events.VOICE_OFFER:
                     target_id = data.get("target_user_id")
-                    if target_id is not None:
+                    if isinstance(target_id, int) and manager.is_in_voice(channel_id, target_id):
                         await manager.send_to_user(
                             channel_id,
-                            int(target_id),
+                            target_id,
                             {
                                 "type": events.VOICE_OFFER,
                                 "from_user_id": user.id,
@@ -177,10 +177,10 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
 
                 elif event_type == events.VOICE_ANSWER:
                     target_id = data.get("target_user_id")
-                    if target_id is not None:
+                    if isinstance(target_id, int) and manager.is_in_voice(channel_id, target_id):
                         await manager.send_to_user(
                             channel_id,
-                            int(target_id),
+                            target_id,
                             {
                                 "type": events.VOICE_ANSWER,
                                 "from_user_id": user.id,
@@ -190,10 +190,10 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
 
                 elif event_type == events.VOICE_ICE_CANDIDATE:
                     target_id = data.get("target_user_id")
-                    if target_id is not None:
+                    if isinstance(target_id, int) and manager.is_in_voice(channel_id, target_id):
                         await manager.send_to_user(
                             channel_id,
-                            int(target_id),
+                            target_id,
                             {
                                 "type": events.VOICE_ICE_CANDIDATE,
                                 "from_user_id": user.id,
@@ -201,7 +201,7 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                             },
                         )
 
-                elif event_type == "voice.heartbeat":
+                elif event_type == events.VOICE_HEARTBEAT:
                     await voice_mgr.heartbeat(channel_id, user.id)
 
             except Exception as exc:

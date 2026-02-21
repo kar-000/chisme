@@ -12,3 +12,4 @@ export const sendMessage = (channelId, content, attachmentIds = [], replyToId = 
     attachment_ids: attachmentIds,
     ...(replyToId != null && { reply_to_id: replyToId }),
   })
+export const markChannelRead = (channelId) => api.post(`/channels/${channelId}/read`)

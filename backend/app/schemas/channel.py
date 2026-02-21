@@ -28,4 +28,6 @@ class ChannelResponse(ChannelBase):
     created_at: datetime
     creator: UserResponse
 
+    unread_count: int = 0
+
     model_config = {"from_attributes": True}
