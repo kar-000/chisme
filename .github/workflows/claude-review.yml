@@ -36,7 +36,8 @@ jobs:
             format('/review {0}', github.event.pull_request.number) || '' }}
           claude_args: >-
             --model claude-sonnet-4-6
-            --max-turns 5
+            --max-turns 15
+            --allowedTools "Bash(gh *),Read,Glob,Grep"
             --append-system-prompt "You are reviewing a Python/FastAPI + React chat application called chisme.
             Focus on: correctness, security (SQLi, auth, input validation), SQLAlchemy/Alembic patterns,
             React/Vite best practices, and test coverage. Be concise."
