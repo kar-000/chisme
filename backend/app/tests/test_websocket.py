@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 
 from app.tests.conftest import register_user
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _register(client: TestClient, username: str, email: str, password: str = "Password1!") -> dict:
     resp = register_user(client, username=username, email=email, password=password)
@@ -37,6 +37,7 @@ def _make_dm(client: TestClient, token: str, other_user_id: int) -> int:
 # ---------------------------------------------------------------------------
 # Channel WebSocket
 # ---------------------------------------------------------------------------
+
 
 class TestChannelWebSocket:
     def test_connect_and_auth_succeeds(self, client: TestClient):
@@ -101,6 +102,7 @@ class TestChannelWebSocket:
 # ---------------------------------------------------------------------------
 # DM WebSocket
 # ---------------------------------------------------------------------------
+
 
 class TestDMWebSocket:
     def test_dm_connect_and_auth_succeeds(self, client: TestClient):

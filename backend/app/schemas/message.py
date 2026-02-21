@@ -1,14 +1,15 @@
-from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
-from typing import Optional, List
 
-from app.schemas.user import UserResponse
-from app.schemas.reaction import ReactionResponse
+from pydantic import BaseModel, Field, model_validator
+
 from app.schemas.attachment import AttachmentResponse
+from app.schemas.reaction import ReactionResponse
+from app.schemas.user import UserResponse
 
 
 class QuotedMessageResponse(BaseModel):
     """Minimal snapshot of the parent message embedded in a reply."""
+
     id: int
     content: str
     user: UserResponse
@@ -18,8 +19,8 @@ class QuotedMessageResponse(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field("", max_length=2000)
-    attachment_ids: List[int] = []
-    reply_to_id: Optional[int] = None
+    attachment_ids: list[int] = []
+    reply_to_id: int | None = None
 
     @model_validator(mode="after")
     def require_content_or_attachment(self) -> "MessageCreate":
@@ -36,21 +37,21 @@ class MessageResponse(BaseModel):
     id: int
     content: str
     user_id: int
-    channel_id: Optional[int] = None
-    dm_channel_id: Optional[int] = None
-    reply_to_id: Optional[int] = None
-    reply_to: Optional[QuotedMessageResponse] = None
+    channel_id: int | None = None
+    dm_channel_id: int | None = None
+    reply_to_id: int | None = None
+    reply_to: QuotedMessageResponse | None = None
     created_at: datetime
-    edited_at: Optional[datetime] = None
+    edited_at: datetime | None = None
     user: UserResponse
-    reactions: List[ReactionResponse] = []
-    attachments: List[AttachmentResponse] = []
+    reactions: list[ReactionResponse] = []
+    attachments: list[AttachmentResponse] = []
 
     model_config = {"from_attributes": True}
 
 
 class MessageList(BaseModel):
-    messages: List[MessageResponse]
+    messages: list[MessageResponse]
     total: int
     limit: int
     offset: int

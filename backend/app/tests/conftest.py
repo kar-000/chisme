@@ -63,6 +63,7 @@ def client(db):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def register_user(client: TestClient, username="testuser", email="test@example.com", password="Password1!"):
     return client.post("/api/auth/register", json={"username": username, "email": email, "password": password})
 

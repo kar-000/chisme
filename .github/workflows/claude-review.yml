@@ -28,12 +28,16 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           show_full_output: true
           # Auto-review on PR open/update; respond to @claude mentions in comments
-          prompt: ${{ github.event_name == 'pull_request' && '/review' || '' }}
+          prompt: >-
+            ${{ github.event_name == 'pull_request' &&
+            format('/review {0}', github.event.pull_request.number) || '' }}
           claude_args: >-
             --model claude-sonnet-4-6
-            --max-turns 5
+            --max-turns 15
+            --allowedTools "Bash(gh *),Read,Glob,Grep"
             --append-system-prompt "You are reviewing a Python/FastAPI + React chat application called chisme.
             Focus on: correctness, security (SQLi, auth, input validation), SQLAlchemy/Alembic patterns,
             React/Vite best practices, and test coverage. Be concise."

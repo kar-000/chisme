@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -21,9 +21,7 @@ class DirectMessageChannel(Base):
     user2 = relationship("User", foreign_keys=[user2_id])
     messages = relationship("Message", back_populates="dm_channel", cascade="all, delete-orphan")
 
-    __table_args__ = (
-        UniqueConstraint("user1_id", "user2_id", name="unique_dm_pair"),
-    )
+    __table_args__ = (UniqueConstraint("user1_id", "user2_id", name="unique_dm_pair"),)
 
     @classmethod
     def get_or_create(cls, db, a: int, b: int) -> "DirectMessageChannel":

@@ -5,9 +5,12 @@ Revises: 001_initial_tables
 Create Date: 2026-02-18
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "002_add_attachments"

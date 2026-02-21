@@ -5,9 +5,12 @@ Revises: 003_add_reply_to
 Create Date: 2026-02-18
 
 """
-from typing import Sequence, Union
+
+from collections.abc import Sequence
+from typing import Union
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "004_add_dm_channels"
@@ -30,7 +33,10 @@ def upgrade() -> None:
     with op.batch_alter_table("messages") as batch_op:
         batch_op.add_column(sa.Column("dm_channel_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
-            "fk_messages_dm_channel_id", "dm_channels", ["dm_channel_id"], ["id"],
+            "fk_messages_dm_channel_id",
+            "dm_channels",
+            ["dm_channel_id"],
+            ["id"],
             ondelete="CASCADE",
         )
         # Make channel_id nullable so DM messages don't need a channel

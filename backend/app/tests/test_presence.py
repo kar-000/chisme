@@ -14,10 +14,10 @@ import pytest
 import app.redis.presence as presence_mod
 from app.tests.conftest import auth_headers
 
-
 # ---------------------------------------------------------------------------
 # Fake async Redis helpers
 # ---------------------------------------------------------------------------
+
 
 class FakeRedis:
     """Minimal in-memory fake that mimics redis.asyncio.Redis."""
@@ -65,6 +65,7 @@ class FakePipeline:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def patch_redis(monkeypatch):
     """Replace get_redis() with a FakeRedis for every test in this module."""
@@ -82,6 +83,7 @@ def no_redis(monkeypatch):
 # ---------------------------------------------------------------------------
 # Unit tests — presence module
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_set_online_stores_status(patch_redis):
@@ -151,6 +153,7 @@ async def test_get_bulk_status_empty_list(patch_redis):
 # Graceful degradation when Redis is None
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_set_online_no_redis_is_noop(no_redis):
     # Should not raise
@@ -182,6 +185,7 @@ async def test_get_bulk_status_no_redis_all_offline(no_redis):
 # ---------------------------------------------------------------------------
 # REST API tests
 # ---------------------------------------------------------------------------
+
 
 def test_get_own_presence(client, patch_redis):
     headers = auth_headers(client)
@@ -215,6 +219,7 @@ def test_set_status_invalid(client, patch_redis):
 def test_get_user_presence(client, patch_redis):
     # Register two users; check presence of the second
     from app.tests.conftest import register_user
+
     headers1 = auth_headers(client, username="alice", email="alice@example.com")
     resp2 = register_user(client, username="bob", email="bob@example.com")
     bob_id = resp2.json()["user"]["id"]

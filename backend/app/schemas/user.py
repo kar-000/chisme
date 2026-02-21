@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
-from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -35,7 +35,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(UserBase):
     id: int
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
     status: str
     created_at: datetime
 
@@ -43,5 +43,5 @@ class UserResponse(UserBase):
 
 
 class UserUpdate(BaseModel):
-    avatar_url: Optional[str] = None
-    status: Optional[str] = Field(None, max_length=100)
+    avatar_url: str | None = None
+    status: str | None = Field(None, max_length=100)

@@ -1,0 +1,22 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # Depends() in function defaults — standard FastAPI pattern
+    "UP007",  # Use X | Y for unions — keep Optional[] for clarity
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/tests/*" = [
+    "E501",   # long lines in test assertions are fine
+    "B017",   # pytest.raises(Exception) — WS close raises unpredictable types
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

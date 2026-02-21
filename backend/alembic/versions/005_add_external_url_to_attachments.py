@@ -6,6 +6,7 @@ Create Date: 2026-02-19
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "005_add_external_url"

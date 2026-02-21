@@ -9,7 +9,6 @@ If Redis is unavailable every call is a no-op and get_status returns "offline".
 """
 
 import logging
-from typing import Dict, List
 
 from app.config import settings
 from app.redis.client import get_redis
@@ -73,7 +72,7 @@ async def get_status(user_id: int) -> str:
         return "offline"
 
 
-async def get_bulk_status(user_ids: List[int]) -> Dict[int, str]:
+async def get_bulk_status(user_ids: list[int]) -> dict[int, str]:
     """Return {user_id: status} for multiple users in a single pipeline."""
     if not user_ids:
         return {}
@@ -85,7 +84,7 @@ async def get_bulk_status(user_ids: List[int]) -> Dict[int, str]:
         for uid in user_ids:
             pipe.get(_key(uid))
         values = await pipe.execute()
-        return {uid: (v if v else "offline") for uid, v in zip(user_ids, values)}
+        return {uid: (v if v else "offline") for uid, v in zip(user_ids, values, strict=False)}
     except Exception as exc:
         logger.warning("presence.get_bulk_status failed: %s", exc)
         return {uid: "offline" for uid in user_ids}

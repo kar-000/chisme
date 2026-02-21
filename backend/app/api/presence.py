@@ -7,8 +7,6 @@ POST /api/users/me/status           — set own status (online / away / dnd)
 GET  /api/presence/bulk             — query multiple users' statuses (query param: ids=1,2,3)
 """
 
-from typing import Dict, List
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -72,7 +70,7 @@ bulk_router = APIRouter(prefix="/presence", tags=["presence"])
 
 
 class BulkPresenceResponse(BaseModel):
-    statuses: Dict[int, str]
+    statuses: dict[int, str]
 
 
 @bulk_router.get("/bulk", response_model=BulkPresenceResponse)
@@ -81,9 +79,9 @@ async def get_bulk_presence(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        user_ids: List[int] = [int(i.strip()) for i in ids.split(",") if i.strip()]
+        user_ids: list[int] = [int(i.strip()) for i in ids.split(",") if i.strip()]
     except ValueError:
-        raise HTTPException(status_code=400, detail="ids must be comma-separated integers")
+        raise HTTPException(status_code=400, detail="ids must be comma-separated integers") from None
     if len(user_ids) > 200:
         raise HTTPException(status_code=400, detail="Too many ids (max 200)")
     statuses = await presence.get_bulk_status(user_ids)

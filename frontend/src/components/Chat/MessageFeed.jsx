@@ -7,13 +7,14 @@ import MessageInput from './MessageInput'
 import TypingIndicator from './TypingIndicator'
 import Header from '../Layout/Header'
 import FailoverBanner from '../Common/FailoverBanner'
+import VoiceControls from '../Voice/VoiceControls'
 
 export default function MessageFeed() {
   const { messages, loadingMessages, activeChannelId } = useChatStore()
-  const { token } = useAuthStore()
+  const { token, user } = useAuthStore()
   const bottomRef = useRef(null)
 
-  const { sendTyping, reconnecting, failoverDetected } = useWebSocket(activeChannelId, token)
+  const { sendTyping, sendMsg, connected, reconnecting, failoverDetected } = useWebSocket(activeChannelId, token)
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function MessageFeed() {
       </div>
 
       <TypingIndicator />
+      <VoiceControls channelId={activeChannelId} currentUser={user} sendMsg={sendMsg} connected={connected} />
       <MessageInput onTyping={sendTyping} />
     </div>
   )

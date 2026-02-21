@@ -1,6 +1,5 @@
 import asyncio
 from datetime import datetime, timezone
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -28,17 +27,14 @@ def _dm_response(dm: DirectMessageChannel, current_user_id: int) -> DMChannelRes
     )
 
 
-@router.get("", response_model=List[DMChannelResponse])
+@router.get("", response_model=list[DMChannelResponse])
 async def list_dms(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> List[DMChannelResponse]:
+) -> list[DMChannelResponse]:
     dms = (
         db.query(DirectMessageChannel)
-        .filter(
-            (DirectMessageChannel.user1_id == current_user.id)
-            | (DirectMessageChannel.user2_id == current_user.id)
-        )
+        .filter((DirectMessageChannel.user1_id == current_user.id) | (DirectMessageChannel.user2_id == current_user.id))
         .order_by(DirectMessageChannel.last_message_at.desc())
         .all()
     )
@@ -65,7 +61,7 @@ async def get_dm_messages(
     dm_id: int,
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
-    before: Optional[datetime] = Query(default=None),
+    before: datetime | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageList:
@@ -111,11 +107,15 @@ async def send_dm_message(
 
     # Validate reply_to_id if provided
     if message_in.reply_to_id is not None:
-        parent = db.query(Message).filter(
-            Message.id == message_in.reply_to_id,
-            Message.dm_channel_id == dm_id,
-            Message.is_deleted == False,  # noqa: E712
-        ).first()
+        parent = (
+            db.query(Message)
+            .filter(
+                Message.id == message_in.reply_to_id,
+                Message.dm_channel_id == dm_id,
+                Message.is_deleted == False,  # noqa: E712
+            )
+            .first()
+        )
         if not parent:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent message not found")
 
@@ -134,9 +134,11 @@ async def send_dm_message(
     response = MessageResponse.model_validate(msg)
 
     # Push to both DM participants via WebSocket
-    asyncio.ensure_future(manager.broadcast_dm(
-        dm_id,
-        {"type": "message.new", "message": response.model_dump(mode="json")},
-    ))
+    asyncio.ensure_future(
+        manager.broadcast_dm(
+            dm_id,
+            {"type": "message.new", "message": response.model_dump(mode="json")},
+        )
+    )
 
     return response

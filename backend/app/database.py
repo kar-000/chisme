@@ -1,9 +1,9 @@
 import logging
 import os
+from collections.abc import Generator
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from typing import Generator
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
 
