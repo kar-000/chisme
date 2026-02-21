@@ -1,5 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import useDMStore from '../store/dmStore'
+import useAuthStore from '../store/authStore'
+import { showNotification } from '../utils/notifications'
 
 const RECONNECT_DELAY = 3000
 
@@ -7,6 +9,7 @@ export function useWebSocketDM(dmId, token) {
   const wsRef = useRef(null)
   const reconnectTimer = useRef(null)
   const appendDMMessage = useDMStore((s) => s.appendDMMessage)
+  const me = useAuthStore((s) => s.user)
 
   const connect = useCallback(() => {
     if (!dmId || !token) return
@@ -25,6 +28,13 @@ export function useWebSocketDM(dmId, token) {
 
       if (data.type === 'message.new') {
         appendDMMessage(data.message)
+        // Notify for incoming DM messages from others
+        if (me && data.message?.user_id !== me.id) {
+          showNotification(`DM from ${data.message?.user?.username}`, {
+            body: data.message?.content,
+            tag: `dm-${data.message?.id}`,
+          })
+        }
       }
     }
 

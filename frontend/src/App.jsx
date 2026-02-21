@@ -7,22 +7,29 @@ import Sidebar from './components/Layout/Sidebar'
 import MessageFeed from './components/Chat/MessageFeed'
 import DMView from './components/Chat/DMView'
 import MessageSearch from './components/Common/MessageSearch'
+import ShortcutsModal from './components/Common/ShortcutsModal'
+import ErrorBoundary from './components/Common/ErrorBoundary'
 
 function ChatLayout() {
   const fetchChannels = useChatStore((s) => s.fetchChannels)
   const activeDmId = useDMStore((s) => s.activeDmId)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   useEffect(() => {
     fetchChannels()
   }, [fetchChannels])
 
-  // Global Ctrl+K shortcut
+  // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault()
         setSearchOpen((v) => !v)
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault()
+        setShortcutsOpen((v) => !v)
       }
     }
     window.addEventListener('keydown', handler)
@@ -30,11 +37,16 @@ function ChatLayout() {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
-      <Sidebar onSearchOpen={() => setSearchOpen(true)} />
-      {activeDmId ? <DMView /> : <MessageFeed />}
-      {searchOpen && <MessageSearch onClose={() => setSearchOpen(false)} />}
-    </div>
+    <ErrorBoundary>
+      <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
+        <Sidebar onSearchOpen={() => setSearchOpen(true)} />
+        <ErrorBoundary>
+          {activeDmId ? <DMView /> : <MessageFeed />}
+        </ErrorBoundary>
+        {searchOpen && <MessageSearch onClose={() => setSearchOpen(false)} />}
+        {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
+      </div>
+    </ErrorBoundary>
   )
 }
 

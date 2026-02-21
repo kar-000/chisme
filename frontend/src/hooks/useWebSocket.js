@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import useChatStore from '../store/chatStore'
+import useAuthStore from '../store/authStore'
+import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
 
 const MAX_RECONNECT_ATTEMPTS = 10
 
@@ -18,7 +20,9 @@ export function useWebSocket(channelId, token) {
   const failoverClearTimer = useRef(null)
   const attemptsRef = useRef(0)
   const mountedRef = useRef(true)
+  const notifPermRequested = useRef(false)
 
+  const me = useAuthStore((s) => s.user)
   const appendMessage = useChatStore((s) => s.appendMessage)
   const updateMessage = useChatStore((s) => s.updateMessage)
   const removeMessage = useChatStore((s) => s.removeMessage)
@@ -41,6 +45,11 @@ export function useWebSocket(channelId, token) {
       setConnected(true)
       setReconnecting(false)
       attemptsRef.current = 0
+      // Request notification permission once per session
+      if (!notifPermRequested.current) {
+        notifPermRequested.current = true
+        requestNotificationPermission()
+      }
       // Keep "back online" banner for 5s then clear
       clearTimeout(failoverClearTimer.current)
       failoverClearTimer.current = setTimeout(() => {
@@ -56,6 +65,13 @@ export function useWebSocket(channelId, token) {
       switch (data.type) {
         case 'message.new':
           appendMessage(data.message)
+          // Notify on @mention when window isn't focused
+          if (me && isMention(data.message?.content, me.username)) {
+            showNotification(`@${me.username} mentioned by ${data.message?.user?.username}`, {
+              body: data.message?.content,
+              tag: `mention-${data.message?.id}`,
+            })
+          }
           break
         case 'message.updated':
           updateMessage(data.message)
