@@ -36,7 +36,7 @@ const useChatStore = create((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
-    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null })
+    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null, voiceUsers: {}, pendingVoiceSignals: [] })
     get().fetchMessages(channelId)
   },
 
@@ -168,6 +168,33 @@ const useChatStore = create((set, get) => ({
     typeof updater === 'function'
       ? set((s) => ({ typingUsers: updater(s.typingUsers) }))
       : set({ typingUsers: updater }),
+
+  /* ── Voice ────────────────────────────────────────────────────── */
+  // voiceUsers: { [user_id]: { user_id, username, muted, video } }
+  voiceUsers: {},
+  // pendingVoiceSignals: queue of { type, from_user_id, sdp?, candidate? }
+  pendingVoiceSignals: [],
+
+  setVoiceUser: (userId, data) =>
+    set((s) => ({ voiceUsers: { ...s.voiceUsers, [userId]: { ...s.voiceUsers[userId], ...data } } })),
+
+  removeVoiceUser: (userId) =>
+    set((s) => {
+      const next = { ...s.voiceUsers }
+      delete next[userId]
+      return { voiceUsers: next }
+    }),
+
+  clearVoiceUsers: () => set({ voiceUsers: {}, pendingVoiceSignals: [] }),
+
+  pushVoiceSignal: (signal) =>
+    set((s) => ({ pendingVoiceSignals: [...s.pendingVoiceSignals, signal] })),
+
+  consumeVoiceSignals: () => {
+    const signals = get().pendingVoiceSignals
+    set({ pendingVoiceSignals: [] })
+    return signals
+  },
 }))
 
 export default useChatStore

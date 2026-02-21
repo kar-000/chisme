@@ -17,7 +17,7 @@ export default function AuthPage() {
             chisme
           </h1>
           <p className="text-[var(--text-muted)] text-xs mt-2 tracking-wider">
-            ── warm crt chat ──
+            ── gossip with your people ──
           </p>
         </div>
 

@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.api import auth, channels, dms, gifs, health, messages, uploads, users
 from app.api.presence import bulk_router, router as presence_router
+from app.api.voice import router as voice_router
 from app.config import settings
 from app.database import get_db, configure_wal_for_replication
 from app.redis.client import init_redis, close_redis
@@ -82,6 +83,7 @@ app.include_router(gifs.router, prefix="/api")
 app.include_router(dms.router, prefix="/api")
 app.include_router(presence_router, prefix="/api")
 app.include_router(bulk_router, prefix="/api")
+app.include_router(voice_router, prefix="/api")
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

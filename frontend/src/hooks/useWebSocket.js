@@ -23,6 +23,9 @@ export function useWebSocket(channelId, token) {
   const updateMessage = useChatStore((s) => s.updateMessage)
   const removeMessage = useChatStore((s) => s.removeMessage)
   const setTypingUsers = useChatStore((s) => s.setTypingUsers)
+  const setVoiceUser = useChatStore((s) => s.setVoiceUser)
+  const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
+  const pushVoiceSignal = useChatStore((s) => s.pushVoiceSignal)
   const typingTimeouts = useRef({})
 
   const connect = useCallback(() => {
@@ -69,6 +72,31 @@ export function useWebSocket(channelId, token) {
           }, 3000)
           break
         }
+        // Voice snapshot on connect: populate all current voice users at once
+        case 'voice.state_snapshot':
+          data.users.forEach((u) => setVoiceUser(u.user_id, u))
+          break
+        // Voice broadcast events → update store
+        case 'voice.user_joined':
+          setVoiceUser(data.user_id, {
+            user_id: data.user_id,
+            username: data.username,
+            muted: data.muted,
+            video: data.video,
+          })
+          break
+        case 'voice.user_left':
+          removeVoiceUser(data.user_id)
+          break
+        case 'voice.state_changed':
+          setVoiceUser(data.user_id, { muted: data.muted, video: data.video })
+          break
+        // Voice P2P signaling → queue for useVoiceChat to consume
+        case 'voice.offer':
+        case 'voice.answer':
+        case 'voice.ice_candidate':
+          pushVoiceSignal(data)
+          break
         default:
           break
       }
@@ -93,11 +121,17 @@ export function useWebSocket(channelId, token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers])
+  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers, setVoiceUser, removeVoiceUser, pushVoiceSignal])
 
   const sendTyping = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'user.typing' }))
+    }
+  }, [])
+
+  const sendMsg = useCallback((payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload))
     }
   }, [])
 
@@ -113,5 +147,5 @@ export function useWebSocket(channelId, token) {
     }
   }, [connect])
 
-  return { sendTyping, connected, reconnecting, failoverDetected }
+  return { sendTyping, sendMsg, connected, reconnecting, failoverDetected }
 }
