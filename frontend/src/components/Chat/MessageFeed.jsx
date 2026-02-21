@@ -10,7 +10,7 @@ import Header from '../Layout/Header'
 import FailoverBanner from '../Common/FailoverBanner'
 import VoiceControls from '../Voice/VoiceControls'
 
-export default function MessageFeed() {
+export default function MessageFeed({ onBack }) {
   const { messages, loadingMessages, activeChannelId } = useChatStore()
   const { token, user } = useAuthStore()
   const bottomRef = useRef(null)
@@ -33,7 +33,7 @@ export default function MessageFeed() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <FailoverBanner reconnecting={reconnecting} failoverDetected={failoverDetected} />
-      <Header />
+      <Header onBack={onBack} />
 
       {/* Messages scroll area */}
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-0.5 min-h-0">

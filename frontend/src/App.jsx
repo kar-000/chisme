@@ -15,6 +15,10 @@ function ChatLayout() {
   const activeDmId = useDMStore((s) => s.activeDmId)
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  const handleNavigate = () => setSidebarOpen(false)
+  const handleBack = () => setSidebarOpen(true)
 
   useEffect(() => {
     fetchChannels()
@@ -39,10 +43,16 @@ function ChatLayout() {
   return (
     <ErrorBoundary>
       <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
-        <Sidebar onSearchOpen={() => setSearchOpen(true)} />
-        <ErrorBoundary>
-          {activeDmId ? <DMView /> : <MessageFeed />}
-        </ErrorBoundary>
+        <Sidebar
+          onSearchOpen={() => setSearchOpen(true)}
+          onNavigate={handleNavigate}
+          mobileHidden={!sidebarOpen}
+        />
+        <div className={`${sidebarOpen ? 'hidden md:flex' : 'flex'} flex-1 flex-col min-w-0 min-h-0`}>
+          <ErrorBoundary>
+            {activeDmId ? <DMView onBack={handleBack} /> : <MessageFeed onBack={handleBack} />}
+          </ErrorBoundary>
+        </div>
         {searchOpen && <MessageSearch onClose={() => setSearchOpen(false)} />}
         {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
       </div>

@@ -17,7 +17,7 @@ function Avatar({ username }) {
   )
 }
 
-export default function Sidebar({ onSearchOpen }) {
+export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
   const { user, logout } = useAuthStore()
   const { fetchDMs, selectDM } = useDMStore()
   const clearActiveChannel = useChatStore((s) => s.clearActiveChannel)
@@ -30,10 +30,11 @@ export default function Sidebar({ onSearchOpen }) {
   const handleSelectDM = (dmId) => {
     clearActiveChannel()
     selectDM(dmId)
+    onNavigate?.()
   }
 
   return (
-    <aside className="w-60 flex flex-col bg-black/20 border-r border-[var(--border)] flex-shrink-0">
+    <aside className={`${mobileHidden ? 'hidden md:flex' : 'flex'} w-full md:w-60 flex-col bg-black/20 border-r border-[var(--border)] flex-shrink-0`}>
       {/* App title + search button */}
       <div className="px-4 py-5 border-b border-[var(--border)] flex items-start justify-between">
         <div>
@@ -60,7 +61,7 @@ export default function Sidebar({ onSearchOpen }) {
           <p className="px-4 pb-1 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">
             channels
           </p>
-          <ChannelList />
+          <ChannelList onNavigate={onNavigate} />
         </div>
 
         {/* DM section */}

@@ -5,7 +5,7 @@ import Modal from '../Common/Modal'
 import Input from '../Common/Input'
 import Button from '../Common/Button'
 
-export default function ChannelList() {
+export default function ChannelList({ onNavigate }) {
   const { channels, activeChannelId, unreadCounts, selectChannel, createChannel } = useChatStore()
   const closeDM = useDMStore((s) => s.closeDM)
   const [showModal, setShowModal] = useState(false)
@@ -51,7 +51,7 @@ export default function ChannelList() {
             return (
               <li key={ch.id}>
                 <button
-                  onClick={() => { closeDM(); selectChannel(ch.id) }}
+                  onClick={() => { closeDM(); selectChannel(ch.id); onNavigate?.() }}
                   className={`
                     w-full text-left px-4 py-2 text-sm flex items-center gap-1
                     border-l-2 transition-all duration-150

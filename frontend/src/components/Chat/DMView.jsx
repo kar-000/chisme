@@ -76,7 +76,7 @@ function DMInput({ dmId }) {
   )
 }
 
-export default function DMView() {
+export default function DMView({ onBack }) {
   const { dmMessages, loadingDMMessages, activeDmId, dms } = useDMStore()
   const { token } = useAuthStore()
   const bottomRef = useRef(null)
@@ -94,6 +94,13 @@ export default function DMView() {
     <div className="flex-1 flex flex-col min-w-0 min-h-0" data-testid="dm-view">
       {/* DM header */}
       <div className="px-4 py-3 border-b border-[var(--border)] flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={onBack}
+          className="md:hidden text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg transition-colors flex-shrink-0"
+          title="Back"
+        >
+          ←
+        </button>
         <span className="text-[var(--text-muted)] font-mono text-sm">@</span>
         <h2 className="font-mono font-semibold text-[var(--text-primary)] tracking-wide">
           {otherUsername}
