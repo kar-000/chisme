@@ -25,6 +25,10 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
   // peerId → RTCPeerConnection
   const peersRef = useRef({})
   const inVoiceRef = useRef(false)
+  // Refs for speaking detection (avoid stale closures in setInterval)
+  const mutedRef = useRef(true)
+  const speakingIntervalRef = useRef(null)
+  const audioContextRef = useRef(null)
 
   const voiceUsers = useChatStore((s) => s.voiceUsers)
   const pendingVoiceSignals = useChatStore((s) => s.pendingVoiceSignals)
@@ -164,6 +168,41 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
     })
   }, [voiceUsers, inVoice, currentUser, createPeer])
 
+  // ── Speaking detection via Web Audio API ──────────────────────────────────
+  const startSpeakingDetection = useCallback((stream) => {
+    try {
+      const ctx = new AudioContext()
+      audioContextRef.current = ctx
+      const source = ctx.createMediaStreamSource(stream)
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 512
+      source.connect(analyser)
+      const buffer = new Uint8Array(analyser.frequencyBinCount)
+
+      let lastSpeaking = false
+      speakingIntervalRef.current = setInterval(() => {
+        if (!inVoiceRef.current) return
+        analyser.getByteFrequencyData(buffer)
+        // RMS of the frequency data as a volume proxy
+        const rms = Math.sqrt(buffer.reduce((sum, v) => sum + v * v, 0) / buffer.length)
+        const speaking = !mutedRef.current && rms > 15
+        if (speaking !== lastSpeaking) {
+          lastSpeaking = speaking
+          sendMsg({ type: 'voice.state_update', muted: mutedRef.current, video: false, speaking })
+        }
+      }, 200)
+    } catch {
+      // AudioContext not supported — skip speaking detection
+    }
+  }, [sendMsg])
+
+  const stopSpeakingDetection = useCallback(() => {
+    clearInterval(speakingIntervalRef.current)
+    speakingIntervalRef.current = null
+    audioContextRef.current?.close().catch(() => {})
+    audioContextRef.current = null
+  }, [])
+
   // ── Join voice ─────────────────────────────────────────────────────────────
   const joinVoice = useCallback(async () => {
     if (inVoiceRef.current) return
@@ -174,7 +213,9 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
       if (navigator.mediaDevices?.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
         localStreamRef.current = stream
+        mutedRef.current = false
         setMuted(false)
+        startSpeakingDetection(stream)
       } else {
         setMicError('no-api')
       }
@@ -187,30 +228,34 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
     inVoiceRef.current = true
     setInVoice(true)
     sendMsg({ type: 'voice.join', muted: localStreamRef.current === null, video: false })
-  }, [sendMsg])
+  }, [sendMsg, startSpeakingDetection])
 
   // ── Leave voice ────────────────────────────────────────────────────────────
   const leaveVoice = useCallback(() => {
     if (!inVoiceRef.current) return
 
+    stopSpeakingDetection()
     Object.keys(peersRef.current).forEach((uid) => closePeer(Number(uid)))
 
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
     localStreamRef.current = null
 
     inVoiceRef.current = false
+    mutedRef.current = true
     setInVoice(false)
     setMicError(null)
     sendMsg({ type: 'voice.leave' })
-  }, [closePeer, sendMsg])
+  }, [closePeer, sendMsg, stopSpeakingDetection])
 
   // ── Toggle mute ───────────────────────────────────────────────────────────
   const toggleMute = useCallback(() => {
     if (!localStreamRef.current) return
     const newMuted = !muted
     localStreamRef.current.getAudioTracks().forEach((t) => { t.enabled = !newMuted })
+    mutedRef.current = newMuted
     setMuted(newMuted)
-    sendMsg({ type: 'voice.state_update', muted: newMuted, video: false })
+    // When muting, immediately signal speaking=false
+    sendMsg({ type: 'voice.state_update', muted: newMuted, video: false, speaking: false })
   }, [muted, sendMsg])
 
   // ── Cleanup on unmount or channel switch ─────────────────────────────────

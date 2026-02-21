@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Modal from './Modal'
 import StatusIndicator from './StatusIndicator'
 import useAuthStore from '../../store/authStore'
-import { getUser, updateMe } from '../../services/users'
+import { getUser, updateMe, uploadAvatar } from '../../services/users'
 
 function Avatar({ username, avatarUrl, size = 56 }) {
   if (avatarUrl) {
@@ -38,6 +38,8 @@ export default function ProfileModal({ userId, onClose }) {
   const [form, setForm] = useState({ display_name: '', bio: '', status: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarInputRef = useRef(null)
 
   useEffect(() => {
     getUser(userId)
@@ -69,6 +71,23 @@ export default function ProfileModal({ userId, onClose }) {
       setError('Failed to save changes.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarUploading(true)
+    setError(null)
+    try {
+      const res = await uploadAvatar(file)
+      setProfile(res.data)
+      setUser(res.data)
+    } catch {
+      setError('Avatar upload failed.')
+    } finally {
+      setAvatarUploading(false)
+      e.target.value = ''
     }
   }
 
@@ -125,7 +144,29 @@ export default function ProfileModal({ userId, onClose }) {
     >
       {/* Header row */}
       <div className="flex items-center gap-4 mb-5">
-        <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={56} />
+        {isOwn ? (
+          <button
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={avatarUploading}
+            className="relative group shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-[var(--border-glow)]"
+            title="Change avatar"
+          >
+            <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={56} />
+            <span className="absolute inset-0 flex items-center justify-center rounded-full
+                             bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-lg">
+              {avatarUploading ? '…' : '📷'}
+            </span>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </button>
+        ) : (
+          <Avatar username={profile.username} avatarUrl={profile.avatar_url} size={56} />
+        )}
         <div className="min-w-0">
           <p className="text-base font-semibold text-[var(--text-primary)] glow-teal truncate">
             {displayedName}

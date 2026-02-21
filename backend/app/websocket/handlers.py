@@ -139,7 +139,8 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                 elif event_type == events.VOICE_STATE_UPDATE:
                     muted = bool(data.get("muted", False))
                     video = bool(data.get("video", False))
-                    manager.voice_user_update(channel_id, user.id, muted, video)
+                    speaking = bool(data.get("speaking", False))
+                    manager.voice_user_update(channel_id, user.id, muted, video, speaking)
                     await voice_mgr.update_state(user.id, channel_id, muted=muted, video=video)
                     await manager.broadcast(
                         channel_id,
@@ -149,6 +150,7 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                             "user_id": user.id,
                             "muted": muted,
                             "video": video,
+                            "speaking": speaking,
                         },
                     )
 

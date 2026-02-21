@@ -76,16 +76,20 @@ class ConnectionManager:
             "username": username,
             "muted": muted,
             "video": video,
+            "speaking": False,
         }
 
     def voice_user_leave(self, channel_id: int, user_id: int) -> None:
         self._voice_users.get(channel_id, {}).pop(user_id, None)
 
-    def voice_user_update(self, channel_id: int, user_id: int, muted: bool, video: bool) -> None:
+    def voice_user_update(
+        self, channel_id: int, user_id: int, muted: bool, video: bool, speaking: bool = False
+    ) -> None:
         state = self._voice_users.get(channel_id, {}).get(user_id)
         if state:
             state["muted"] = muted
             state["video"] = video
+            state["speaking"] = speaking
 
     def get_voice_users(self, channel_id: int) -> list[dict]:
         """Return all voice user state dicts for a channel."""

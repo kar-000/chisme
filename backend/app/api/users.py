@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse, UserUpdate
+from app.storage import save_upload
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -26,6 +28,30 @@ async def update_me(
     update_data = updates.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(current_user, field, value)
+    db.commit()
+    db.refresh(current_user)
+    return UserResponse.model_validate(current_user)
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    allowed_image_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed_image_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Avatar must be a JPEG, PNG, GIF, or WebP image",
+        )
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:  # 5 MB cap
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Avatar must be under 5 MB")
+
+    stored_filename, _ = save_upload(content, file.filename, settings.UPLOAD_DIR)
+    current_user.avatar_url = f"/uploads/{stored_filename}"
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)
