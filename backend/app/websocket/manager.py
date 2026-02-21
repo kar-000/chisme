@@ -21,6 +21,9 @@ class ConnectionManager:
         self._connections: Dict[int, Dict[int, WebSocket]] = defaultdict(dict)
         # dm_channel_id -> {user_id: WebSocket}
         self._dm_connections: Dict[int, Dict[int, WebSocket]] = defaultdict(dict)
+        # channel_id -> {user_id: {user_id, username, muted, video}}
+        # In-memory voice state — no Redis dependency for presence snapshots.
+        self._voice_users: Dict[int, Dict[int, dict]] = defaultdict(dict)
 
     # ------------------------------------------------------------------
     # Channel connections
@@ -63,6 +66,34 @@ class ConnectionManager:
     def get_channel_users(self, channel_id: int) -> list[int]:
         """Return user_ids currently connected to a channel."""
         return list(self._connections.get(channel_id, {}).keys())
+
+    # ------------------------------------------------------------------
+    # In-memory voice state
+    # ------------------------------------------------------------------
+
+    def voice_user_join(self, channel_id: int, user_id: int, username: str, muted: bool, video: bool) -> None:
+        self._voice_users[channel_id][user_id] = {
+            "user_id": user_id,
+            "username": username,
+            "muted": muted,
+            "video": video,
+        }
+
+    def voice_user_leave(self, channel_id: int, user_id: int) -> None:
+        self._voice_users.get(channel_id, {}).pop(user_id, None)
+
+    def voice_user_update(self, channel_id: int, user_id: int, muted: bool, video: bool) -> None:
+        state = self._voice_users.get(channel_id, {}).get(user_id)
+        if state:
+            state["muted"] = muted
+            state["video"] = video
+
+    def get_voice_users(self, channel_id: int) -> list[dict]:
+        """Return all voice user state dicts for a channel."""
+        return list(self._voice_users.get(channel_id, {}).values())
+
+    def is_in_voice(self, channel_id: int, user_id: int) -> bool:
+        return user_id in self._voice_users.get(channel_id, {})
 
     # ------------------------------------------------------------------
     # DM connections

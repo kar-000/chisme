@@ -16,34 +16,44 @@ from app.websocket.manager import manager
 logger = logging.getLogger(__name__)
 
 
+async def _ws_close(websocket: WebSocket, code: int = 1008) -> None:
+    """Close a WebSocket, ignoring errors if it already closed."""
+    try:
+        await websocket.close(code=code)
+    except (RuntimeError, Exception):
+        pass
+
+
 async def _authenticate(websocket: WebSocket, db: Session) -> User | None:
     """Expect the first message to be {"type": "auth", "token": "<jwt>"}."""
     await websocket.accept()  # must accept before receive_text()
     try:
         raw = await websocket.receive_text()
         data = json.loads(raw)
+    except WebSocketDisconnect:
+        return None  # client disconnected before sending auth
     except Exception:
-        await websocket.close(code=1008)
+        await _ws_close(websocket)
         return None
 
     if data.get("type") != "auth":
-        await websocket.close(code=1008)
+        await _ws_close(websocket)
         return None
 
     token = data.get("token", "")
     payload = decode_access_token(token)
     if not payload:
-        await websocket.close(code=1008)
+        await _ws_close(websocket)
         return None
 
     user_id = payload.get("sub")
     try:
         user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()  # noqa: E712
     except (TypeError, ValueError):
-        await websocket.close(code=1008)
+        await _ws_close(websocket)
         return None
     if not user:
-        await websocket.close(code=1008)
+        await _ws_close(websocket)
         return None
 
     return user
@@ -76,27 +86,13 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
     )
 
     # Send current voice channel occupants to the newly connected user
-    voice_user_ids = await voice_mgr.get_channel_voice_users(channel_id)
-    if voice_user_ids:
-        voice_states = await voice_mgr.get_bulk_voice_states(voice_user_ids)
-        users_in_voice = db.query(User).filter(User.id.in_(voice_user_ids)).all()
-        username_map = {u.id: u.username for u in users_in_voice}
-        snapshot = [
-            {
-                "user_id": uid,
-                "username": username_map.get(uid, "unknown"),
-                "muted": (state or {}).get("muted", True),
-                "video": (state or {}).get("video", False),
-            }
-            for uid, state in voice_states.items()
-            if state is not None
-        ]
-        if snapshot:
-            await manager.send_to_user(
-                channel_id,
-                user.id,
-                {"type": events.VOICE_STATE_SNAPSHOT, "channel_id": channel_id, "users": snapshot},
-            )
+    snapshot = manager.get_voice_users(channel_id)
+    if snapshot:
+        await manager.send_to_user(
+            channel_id,
+            user.id,
+            {"type": events.VOICE_STATE_SNAPSHOT, "channel_id": channel_id, "users": snapshot},
+        )
 
     try:
         while True:
@@ -123,6 +119,7 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                 elif event_type == events.VOICE_JOIN:
                     muted = bool(data.get("muted", False))
                     video = bool(data.get("video", False))
+                    manager.voice_user_join(channel_id, user.id, user.username, muted, video)
                     await voice_mgr.join_voice(channel_id, user.id, muted=muted, video=video)
                     await manager.broadcast(
                         channel_id,
@@ -137,6 +134,7 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                     )
 
                 elif event_type == events.VOICE_LEAVE:
+                    manager.voice_user_leave(channel_id, user.id)
                     await voice_mgr.leave_voice(channel_id, user.id)
                     await manager.broadcast(
                         channel_id,
@@ -151,6 +149,7 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                 elif event_type == events.VOICE_STATE_UPDATE:
                     muted = bool(data.get("muted", False))
                     video = bool(data.get("video", False))
+                    manager.voice_user_update(channel_id, user.id, muted, video)
                     await voice_mgr.update_state(user.id, channel_id, muted=muted, video=video)
                     await manager.broadcast(
                         channel_id,
@@ -210,8 +209,8 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
 
     except WebSocketDisconnect:
         # Auto-leave voice if connected
-        voice_state = await voice_mgr.get_user_voice_state(user.id)
-        if voice_state and voice_state.get("channel_id") == channel_id:
+        if manager.is_in_voice(channel_id, user.id):
+            manager.voice_user_leave(channel_id, user.id)
             await voice_mgr.leave_voice(channel_id, user.id)
             await manager.broadcast(
                 channel_id,
