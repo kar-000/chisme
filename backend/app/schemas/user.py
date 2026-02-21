@@ -32,6 +32,11 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+    @field_validator("username")
+    @classmethod
+    def username_lowercase(cls, v: str) -> str:
+        return v.lower()
+
 
 class UserResponse(UserBase):
     id: int

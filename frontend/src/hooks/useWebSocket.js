@@ -110,7 +110,7 @@ export function useWebSocket(channelId, token) {
           adjustChannelVoiceCount(data.channel_id, -1)
           break
         case 'voice.state_changed':
-          setVoiceUser(data.user_id, { muted: data.muted, video: data.video })
+          setVoiceUser(data.user_id, { muted: data.muted, video: data.video, speaking: data.speaking ?? false })
           break
         // Voice P2P signaling → queue for useVoiceChat to consume
         case 'voice.offer':
