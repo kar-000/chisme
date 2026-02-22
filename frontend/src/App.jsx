@@ -12,9 +12,11 @@ import MessageSearch from './components/Common/MessageSearch'
 import ShortcutsModal from './components/Common/ShortcutsModal'
 import ErrorBoundary from './components/Common/ErrorBoundary'
 import { ServerList } from './components/Server/ServerList'
+import { InviteModal } from './components/Server/InviteModal'
 import { InviteLandingPage } from './pages/InviteLandingPage'
 import { OperatorDashboard } from './pages/OperatorDashboard'
 import { useFaviconBadge } from './hooks/useFaviconBadge'
+import { useInviteModal } from './hooks/useInviteModal'
 import { useVoiceWebSocket } from './hooks/useVoiceWebSocket'
 
 // Detect special routes at module load time (before any React rendering)
@@ -30,6 +32,7 @@ function ChatLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token)
+  const invite = useInviteModal()
 
   const handleNavigate = () => setSidebarOpen(false)
   const handleBack = () => setSidebarOpen(true)
@@ -101,6 +104,7 @@ function ChatLayout() {
 
         {searchOpen && <MessageSearch onClose={() => setSearchOpen(false)} />}
         {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
+        {invite.isOpen && <InviteModal onClose={invite.close} />}
       </div>
     </ErrorBoundary>
   )
