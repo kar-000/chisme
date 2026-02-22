@@ -1,0 +1,14 @@
+{
+  "name": "Chisme",
+  "short_name": "Chisme",
+  "description": "Retro-flavored self-hosted chat",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1612",
+  "theme_color": "#c8a96e",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

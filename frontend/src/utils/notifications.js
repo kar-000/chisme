@@ -6,12 +6,21 @@
  *   showNotification('New message', { body: 'Hello!', onClick: () => {} })
  */
 
+import { registerPushIfAvailable } from './pushSubscription'
+
 export async function requestNotificationPermission() {
   if (!('Notification' in window)) return false
-  if (Notification.permission === 'granted') return true
+  if (Notification.permission === 'granted') {
+    await registerPushIfAvailable()
+    return true
+  }
   if (Notification.permission === 'denied') return false
   const result = await Notification.requestPermission()
-  return result === 'granted'
+  if (result === 'granted') {
+    await registerPushIfAvailable()
+    return true
+  }
+  return false
 }
 
 export function showNotification(title, { body, tag, onClick } = {}) {

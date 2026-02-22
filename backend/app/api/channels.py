@@ -15,6 +15,7 @@ from app.models.user import User
 from app.redis import voice as voice_mgr
 from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
+from app.services.push_service import send_push_to_user
 from app.websocket.manager import manager
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -257,5 +258,25 @@ async def send_message(
             {"type": "message.new", "message": response.model_dump(mode="json")},
         )
     )
+
+    # Push to @mentioned users who are not currently connected to this channel
+    if message_in.content:
+        connected_users = set(manager.get_channel_users(channel_id))
+        words = message_in.content.lower().split()
+        mentioned_names = {w.lstrip("@") for w in words if w.startswith("@")}
+        if mentioned_names:
+            mentioned_users = (
+                db.query(User).filter(User.username.in_(mentioned_names), User.id != current_user.id).all()
+            )
+            for target in mentioned_users:
+                if target.id not in connected_users:
+                    send_push_to_user(
+                        user_id=target.id,
+                        title=f"@{current_user.username} mentioned you in #{channel.name}",
+                        body=message_in.content[:100],
+                        url=f"/?channel={channel_id}",
+                        tag=f"mention-{message.id}",
+                        db=db,
+                    )
 
     return response
