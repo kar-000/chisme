@@ -15,6 +15,7 @@ from app.models.user import User
 from app.redis import voice as voice_mgr
 from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
+from app.schemas.user import UserResponse
 from app.services.push_service import send_push_to_user
 from app.websocket.manager import manager
 
@@ -151,6 +152,36 @@ async def create_channel(
     db.commit()
     db.refresh(channel)
     return ChannelResponse.model_validate(channel)
+
+
+@router.get("/{channel_id}/members", response_model=list[UserResponse])
+async def get_channel_members(
+    channel_id: int,
+    q: str | None = Query(None, description="Filter by username/display_name prefix"),
+    limit: int = Query(10, ge=1, le=20),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[UserResponse]:
+    """Return distinct users who have posted in a channel, optionally filtered by name prefix."""
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
+
+    q_obj = (
+        db.query(User)
+        .join(Message, Message.user_id == User.id)
+        .filter(
+            Message.channel_id == channel_id,
+            Message.is_deleted == False,  # noqa: E712
+        )
+        .distinct()
+    )
+    if q:
+        pattern = f"{q.strip()}%"
+        q_obj = q_obj.filter(User.username.ilike(pattern) | User.display_name.ilike(pattern))
+
+    users = q_obj.order_by(User.username).limit(limit).all()
+    return [UserResponse.model_validate(u) for u in users]
 
 
 @router.get("/{channel_id}", response_model=ChannelResponse)
