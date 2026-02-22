@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import useChatStore from '../store/chatStore'
+import useAuthStore from '../store/authStore'
+import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
 
 const MAX_RECONNECT_ATTEMPTS = 10
 
@@ -18,11 +20,18 @@ export function useWebSocket(channelId, token) {
   const failoverClearTimer = useRef(null)
   const attemptsRef = useRef(0)
   const mountedRef = useRef(true)
+  const notifPermRequested = useRef(false)
 
+  const me = useAuthStore((s) => s.user)
   const appendMessage = useChatStore((s) => s.appendMessage)
   const updateMessage = useChatStore((s) => s.updateMessage)
   const removeMessage = useChatStore((s) => s.removeMessage)
   const setTypingUsers = useChatStore((s) => s.setTypingUsers)
+  const setVoiceUser = useChatStore((s) => s.setVoiceUser)
+  const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
+  const pushVoiceSignal = useChatStore((s) => s.pushVoiceSignal)
+  const setChannelVoiceCount = useChatStore((s) => s.setChannelVoiceCount)
+  const adjustChannelVoiceCount = useChatStore((s) => s.adjustChannelVoiceCount)
   const typingTimeouts = useRef({})
 
   const connect = useCallback(() => {
@@ -38,6 +47,11 @@ export function useWebSocket(channelId, token) {
       setConnected(true)
       setReconnecting(false)
       attemptsRef.current = 0
+      // Request notification permission once per session
+      if (!notifPermRequested.current) {
+        notifPermRequested.current = true
+        requestNotificationPermission()
+      }
       // Keep "back online" banner for 5s then clear
       clearTimeout(failoverClearTimer.current)
       failoverClearTimer.current = setTimeout(() => {
@@ -53,6 +67,13 @@ export function useWebSocket(channelId, token) {
       switch (data.type) {
         case 'message.new':
           appendMessage(data.message)
+          // Notify on @mention when window isn't focused
+          if (me && isMention(data.message?.content, me.username)) {
+            showNotification(`@${me.username} mentioned by ${data.message?.user?.username}`, {
+              body: data.message?.content,
+              tag: `mention-${data.message?.id}`,
+            })
+          }
           break
         case 'message.updated':
           updateMessage(data.message)
@@ -69,6 +90,34 @@ export function useWebSocket(channelId, token) {
           }, 3000)
           break
         }
+        // Voice snapshot on connect: populate all current voice users at once
+        case 'voice.state_snapshot':
+          data.users.forEach((u) => setVoiceUser(u.user_id, u))
+          setChannelVoiceCount(data.channel_id, data.users.length)
+          break
+        // Voice broadcast events → update store
+        case 'voice.user_joined':
+          setVoiceUser(data.user_id, {
+            user_id: data.user_id,
+            username: data.username,
+            muted: data.muted,
+            video: data.video,
+          })
+          adjustChannelVoiceCount(data.channel_id, 1)
+          break
+        case 'voice.user_left':
+          removeVoiceUser(data.user_id)
+          adjustChannelVoiceCount(data.channel_id, -1)
+          break
+        case 'voice.state_changed':
+          setVoiceUser(data.user_id, { muted: data.muted, video: data.video, speaking: data.speaking ?? false })
+          break
+        // Voice P2P signaling → queue for useVoiceChat to consume
+        case 'voice.offer':
+        case 'voice.answer':
+        case 'voice.ice_candidate':
+          pushVoiceSignal(data)
+          break
         default:
           break
       }
@@ -93,11 +142,17 @@ export function useWebSocket(channelId, token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers])
+  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers, setVoiceUser, removeVoiceUser, pushVoiceSignal, setChannelVoiceCount, adjustChannelVoiceCount])
 
   const sendTyping = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'user.typing' }))
+    }
+  }, [])
+
+  const sendMsg = useCallback((payload) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(payload))
     }
   }, [])
 
@@ -113,5 +168,5 @@ export function useWebSocket(channelId, token) {
     }
   }, [connect])
 
-  return { sendTyping, connected, reconnecting, failoverDetected }
+  return { sendTyping, sendMsg, connected, reconnecting, failoverDetected }
 }

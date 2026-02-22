@@ -1,6 +1,6 @@
-from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
-from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -32,10 +32,17 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+    @field_validator("username")
+    @classmethod
+    def username_lowercase(cls, v: str) -> str:
+        return v.lower()
+
 
 class UserResponse(UserBase):
     id: int
-    avatar_url: Optional[str] = None
+    avatar_url: str | None = None
+    display_name: str | None = None
+    bio: str | None = None
     status: str
     created_at: datetime
 
@@ -43,5 +50,7 @@ class UserResponse(UserBase):
 
 
 class UserUpdate(BaseModel):
-    avatar_url: Optional[str] = None
-    status: Optional[str] = Field(None, max_length=100)
+    avatar_url: str | None = None
+    display_name: str | None = Field(None, max_length=50)
+    bio: str | None = Field(None, max_length=500)
+    status: str | None = Field(None, max_length=100)

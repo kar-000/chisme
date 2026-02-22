@@ -9,9 +9,9 @@ from alembic import context
 # Make sure app is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import app.models  # noqa: F401, E402 — register all models with Base
 from app.config import settings  # noqa: E402
 from app.database import Base  # noqa: E402
-import app.models  # noqa: F401, E402 — register all models with Base
 
 config = context.config
 

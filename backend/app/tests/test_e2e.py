@@ -35,10 +35,7 @@ class TestFullChatFlow:
         history = client.get(f"/api/channels/{ch_id}/messages", headers=headers)
         assert history.status_code == 200
         messages = history.json()["messages"]
-        assert any(
-            any(r["emoji"] == "🎉" for r in m.get("reactions", []))
-            for m in messages
-        )
+        assert any(any(r["emoji"] == "🎉" for r in m.get("reactions", [])) for m in messages)
 
         # 7. Edit message
         edit = client.put(f"/api/messages/{msg_id}", json={"content": "Hola editado!"}, headers=headers)

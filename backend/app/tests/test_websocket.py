@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 
 from app.tests.conftest import register_user
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _register(client: TestClient, username: str, email: str, password: str = "Password1!") -> dict:
     resp = register_user(client, username=username, email=email, password=password)
@@ -37,6 +37,7 @@ def _make_dm(client: TestClient, token: str, other_user_id: int) -> int:
 # ---------------------------------------------------------------------------
 # Channel WebSocket
 # ---------------------------------------------------------------------------
+
 
 class TestChannelWebSocket:
     def test_connect_and_auth_succeeds(self, client: TestClient):
@@ -82,11 +83,14 @@ class TestChannelWebSocket:
         with client.websocket_connect(f"/ws/channels/{channel_id}") as ws1:
             ws1.send_json({"type": "auth", "token": token1})
             ws1.receive_json()  # ws1's user.joined
+            ws1.receive_json()  # ws1's presence.changed (online)
 
             with client.websocket_connect(f"/ws/channels/{channel_id}") as ws2:
                 ws2.send_json({"type": "auth", "token": token2})
-                ws1.receive_json()  # ws1 sees ws2 join
-                ws2.receive_json()  # ws2 sees its own join
+                ws1.receive_json()  # ws1 sees ws2 user.joined
+                ws1.receive_json()  # ws1 sees ws2 presence.changed (online)
+                ws2.receive_json()  # ws2's own user.joined
+                ws2.receive_json()  # ws2's own presence.changed (online)
 
                 ws2.send_json({"type": "user.typing"})
 
@@ -98,6 +102,7 @@ class TestChannelWebSocket:
 # ---------------------------------------------------------------------------
 # DM WebSocket
 # ---------------------------------------------------------------------------
+
 
 class TestDMWebSocket:
     def test_dm_connect_and_auth_succeeds(self, client: TestClient):

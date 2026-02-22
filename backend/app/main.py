@@ -11,6 +11,7 @@ UI palette reference (from COLOR_REFERENCE.md warm CRT theme):
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,9 +19,13 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from app.api import auth, channels, dms, gifs, health, messages, uploads, users
+from app.api import auth, channels, dms, gifs, health, messages, search, uploads, users
+from app.api.presence import bulk_router
+from app.api.presence import router as presence_router
+from app.api.voice import router as voice_router
 from app.config import settings
-from app.database import get_db, configure_wal_for_replication
+from app.database import configure_wal_for_replication, get_db
+from app.redis.client import close_redis, init_redis
 from app.websocket.handlers import channel_ws_handler, dm_ws_handler
 
 logging.basicConfig(
@@ -32,11 +37,20 @@ logger = logging.getLogger(__name__)
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 configure_wal_for_replication()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_redis()
+    yield
+    await close_redis()
+
+
 app = FastAPI(
     title="chisme",
     description="Retro IRC-style chat — warm CRT aesthetic",
     version="1.0.0",
     debug=settings.DEBUG,
+    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
@@ -68,6 +82,10 @@ app.include_router(messages.router, prefix="/api")
 app.include_router(uploads.router, prefix="/api")
 app.include_router(gifs.router, prefix="/api")
 app.include_router(dms.router, prefix="/api")
+app.include_router(presence_router, prefix="/api")
+app.include_router(bulk_router, prefix="/api")
+app.include_router(voice_router, prefix="/api")
+app.include_router(search.router, prefix="/api")
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
@@ -76,22 +94,21 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 # WebSocket endpoint
 # ---------------------------------------------------------------------------
 
+
 @app.websocket("/ws/channels/{channel_id}")
-async def websocket_endpoint(
-    websocket: WebSocket, channel_id: int, db: Session = Depends(get_db)
-) -> None:
+async def websocket_endpoint(websocket: WebSocket, channel_id: int, db: Session = Depends(get_db)) -> None:
     await channel_ws_handler(websocket, channel_id, db)
 
 
 @app.websocket("/ws/dm/{dm_id}")
-async def dm_websocket_endpoint(
-    websocket: WebSocket, dm_id: int, db: Session = Depends(get_db)
-) -> None:
+async def dm_websocket_endpoint(websocket: WebSocket, dm_id: int, db: Session = Depends(get_db)) -> None:
     await dm_ws_handler(websocket, dm_id, db)
+
 
 # ---------------------------------------------------------------------------
 # Custom exception handlers
 # ---------------------------------------------------------------------------
+
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError) -> JSONResponse:

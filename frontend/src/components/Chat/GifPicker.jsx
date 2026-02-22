@@ -56,7 +56,7 @@ export default function GifPicker({ onSelect, onClose }) {
   return (
     <div
       ref={containerRef}
-      className="absolute bottom-full left-0 mb-2 w-80 bg-[var(--bg-primary)] border border-[var(--border-glow)] rounded shadow-[0_0_16px_rgba(0,206,209,0.25)] z-20"
+      className="absolute bottom-full left-0 mb-2 w-80 max-w-[calc(100vw-2rem)] bg-[var(--bg-primary)] border border-[var(--border-glow)] rounded shadow-[0_0_16px_rgba(0,206,209,0.25)] z-20"
       data-testid="gif-picker"
     >
       {/* Search input */}

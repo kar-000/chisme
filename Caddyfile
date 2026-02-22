@@ -1,0 +1,41 @@
+# Chisme — single-server Caddy configuration.
+#
+# Set DOMAIN in .env (e.g. DOMAIN=chisme.example.com).
+# Caddy auto-provisions HTTPS for real domains via Let's Encrypt.
+# For local use (DOMAIN=localhost), Caddy serves plain HTTP.
+
+{$DOMAIN} {
+    encode gzip
+
+    # API and WebSocket connections → backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle /ws/* {
+        reverse_proxy backend:8000
+    }
+
+    # Uploaded files → backend StaticFiles mount
+    handle /uploads/* {
+        reverse_proxy backend:8000
+    }
+
+    # All other requests → frontend (nginx serving built React SPA)
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+}
+
+# Redirect www → apex domain
+www.{$DOMAIN} {
+    redir https://{$DOMAIN}{uri} permanent
+}

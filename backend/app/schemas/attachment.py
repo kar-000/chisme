@@ -1,6 +1,6 @@
-from pydantic import BaseModel, computed_field
 from datetime import datetime
-from typing import Optional
+
+from pydantic import BaseModel, computed_field
 
 
 class AttachmentResponse(BaseModel):
@@ -10,8 +10,8 @@ class AttachmentResponse(BaseModel):
     mime_type: str
     size: int
     created_at: datetime
-    external_url: Optional[str] = None
-    thumbnail_filename: Optional[str] = None
+    external_url: str | None = None
+    thumbnail_filename: str | None = None
 
     @computed_field
     @property
@@ -22,7 +22,7 @@ class AttachmentResponse(BaseModel):
 
     @computed_field
     @property
-    def thumbnail_url(self) -> Optional[str]:
+    def thumbnail_url(self) -> str | None:
         if self.thumbnail_filename:
             return f"/uploads/{self.thumbnail_filename}"
         return None

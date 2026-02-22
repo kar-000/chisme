@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from typing import List
 
 
 class Settings(BaseSettings):
@@ -7,9 +6,19 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
+
+    # Redis — presence, pub/sub, voice state, HA coordination
+    # Set to empty string to disable Redis (app falls back to in-memory only)
+    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_PRESENCE_TTL: int = 300  # seconds — key expires if heartbeat stops
+
+    # Server identity — used to namespace Redis keys and qualify user identities.
+    # Set to your public domain in production (e.g. "chisme-groupa.example.com").
+    # Each independent Chisme deployment should have a unique value.
+    SERVER_DOMAIN: str = "localhost"
 
     # Tenor GIF API (v2) — set in .env (console.cloud.google.com → enable Tenor API → create key)
     TENOR_API_KEY: str = ""
@@ -19,7 +28,7 @@ class Settings(BaseSettings):
     # File uploads
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE: int = 26_214_400  # 25 MB
-    ALLOWED_MIME_TYPES: List[str] = [
+    ALLOWED_MIME_TYPES: list[str] = [
         "image/jpeg",
         "image/png",
         "image/gif",

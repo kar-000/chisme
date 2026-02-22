@@ -44,6 +44,7 @@ class TestAuthorizationBoundaries:
 
     def test_expired_token_rejected(self, client: TestClient):
         from datetime import timedelta
+
         from app.core.security import create_access_token
 
         # Create a token that expired in the past; jose raises JWTError → 401

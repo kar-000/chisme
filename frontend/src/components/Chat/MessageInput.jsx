@@ -16,7 +16,6 @@ export default function MessageInput({ onTyping }) {
   const {
     sendMessage,
     activeChannelId,
-    fetchMessages,
     pendingAttachments,
     addPendingAttachment,
     updateAttachmentProgress,
@@ -106,7 +105,6 @@ export default function MessageInput({ onTyping }) {
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     try {
       await sendMessage(text, readyIds)
-      fetchMessages(activeChannelId)
     } catch (err) {
       console.error('Send failed', err)
     }

@@ -1,7 +1,5 @@
 """Tenor GIF search proxy and attachment creation."""
 
-from typing import List
-
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -66,7 +64,7 @@ def _tenor_fetch(path: str, params: dict) -> dict:
         ) from exc
 
 
-def _parse_results(data: dict) -> List[GifResult]:
+def _parse_results(data: dict) -> list[GifResult]:
     results = []
     for item in data.get("results", []):
         fmts = item.get("media_formats", {})
@@ -93,12 +91,12 @@ def _parse_results(data: dict) -> List[GifResult]:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/search", response_model=List[GifResult])
+@router.get("/search", response_model=list[GifResult])
 def search_gifs(
     q: str = "",
     limit: int = 20,
     current_user: User = Depends(get_current_user),
-) -> List[GifResult]:
+) -> list[GifResult]:
     """Search Tenor for GIFs (or return featured GIFs when query is empty)."""
     limit = min(limit, settings.TENOR_SEARCH_LIMIT)
     if q.strip():

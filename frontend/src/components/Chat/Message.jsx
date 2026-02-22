@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
+import ProfileModal from '../Common/ProfileModal'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -152,6 +153,7 @@ export default function Message({ message }) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
+  const [profileUserId, setProfileUserId] = useState(null)
 
   const isOwn = message.user_id === user?.id
 
@@ -169,6 +171,7 @@ export default function Message({ message }) {
   const quickReact = (emoji) => addReaction(message.id, emoji)
 
   return (
+    <>
     <div
       className={`
         group flex gap-3 px-3 py-2 rounded transition-all duration-150 msg-appear
@@ -189,12 +192,13 @@ export default function Message({ message }) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
-          <span
-            className={`text-sm font-medium ${isOwn ? 'text-[var(--text-lt)]' : 'text-[var(--text-lt)]'}`}
+          <button
+            onClick={() => setProfileUserId(message.user_id)}
+            className="text-sm font-medium text-[var(--text-lt)] hover:underline cursor-pointer bg-transparent border-none p-0"
             style={{ textShadow: '0 0 4px rgba(93,173,226,0.4)' }}
           >
             {message.user?.username}
-          </span>
+          </button>
           <span className="text-[10px] text-[var(--text-muted)]">
             {formatTime(message.created_at)}
           </span>
@@ -272,5 +276,10 @@ export default function Message({ message }) {
         </div>
       )}
     </div>
+
+    {profileUserId && (
+      <ProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />
+    )}
+    </>
   )
 }

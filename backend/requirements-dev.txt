@@ -6,3 +6,4 @@ httpx==0.28.1
 anyio==4.7.0
 # In-memory SQLite for tests (no Postgres needed)
 aiosqlite==0.20.0
+ruff>=0.15.0

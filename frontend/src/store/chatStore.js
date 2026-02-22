@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { listChannels, createChannel, getMessages, sendMessage } from '../services/channels'
+import { listChannels, createChannel, getMessages, sendMessage, markChannelRead } from '../services/channels'
 import { addReaction, removeReaction, editMessage, deleteMessage } from '../services/messages'
 
 let _nextTempId = 1
@@ -19,10 +19,16 @@ const useChatStore = create((set, get) => ({
   // Quote-reply: the message being replied to (or null)
   replyingTo: null,
 
+  // Unread counts: { [channelId]: number } — populated from API, cleared on select
+  unreadCounts: {},
+
   /* ── Channels ─────────────────────────────────────────────────── */
   fetchChannels: async () => {
     const { data } = await listChannels({ limit: 100 })
-    set({ channels: data })
+    // Populate unread counts from the server response
+    const unreadCounts = {}
+    data.forEach((c) => { unreadCounts[c.id] = c.unread_count ?? 0 })
+    set({ channels: data, unreadCounts })
     if (!get().activeChannelId && data.length > 0) {
       const general = data.find((c) => c.name === 'general') ?? data[0]
       get().selectChannel(general.id)
@@ -36,8 +42,21 @@ const useChatStore = create((set, get) => ({
   },
 
   selectChannel: async (channelId) => {
-    set({ activeChannelId: channelId, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null })
+    // Clear unread badge immediately (optimistic)
+    set((s) => ({
+      activeChannelId: channelId,
+      messages: [],
+      messagesTotal: 0,
+      typingUsers: [],
+      pendingAttachments: [],
+      replyingTo: null,
+      voiceUsers: {},
+      pendingVoiceSignals: [],
+      unreadCounts: { ...s.unreadCounts, [channelId]: 0 },
+    }))
     get().fetchMessages(channelId)
+    // Persist read position on the server (fire-and-forget)
+    markChannelRead(channelId).catch(() => {})
   },
 
   clearActiveChannel: () => {
@@ -120,6 +139,23 @@ const useChatStore = create((set, get) => ({
 
   clearPendingAttachments: () => set({ pendingAttachments: [] }),
 
+  /* ── Voice counts (per-channel, for sidebar indicator) ───────── */
+  // Absolute set — used when we receive a voice.state_snapshot
+  setChannelVoiceCount: (channelId, count) =>
+    set((s) => ({
+      channels: s.channels.map((c) =>
+        c.id === channelId ? { ...c, voice_count: Math.max(0, count) } : c
+      ),
+    })),
+
+  // Delta update — used on voice.user_joined (+1) / voice.user_left (-1)
+  adjustChannelVoiceCount: (channelId, delta) =>
+    set((s) => ({
+      channels: s.channels.map((c) =>
+        c.id === channelId ? { ...c, voice_count: Math.max(0, (c.voice_count ?? 0) + delta) } : c
+      ),
+    })),
+
   /* ── Reply ────────────────────────────────────────────────────── */
   setReplyingTo: (message) => set({ replyingTo: message }),
   clearReplyingTo: () => set({ replyingTo: null }),
@@ -168,6 +204,31 @@ const useChatStore = create((set, get) => ({
     typeof updater === 'function'
       ? set((s) => ({ typingUsers: updater(s.typingUsers) }))
       : set({ typingUsers: updater }),
+
+  /* ── Voice ────────────────────────────────────────────────────── */
+  // voiceUsers: { [user_id]: { user_id, username, muted, video } }
+  voiceUsers: {},
+  // pendingVoiceSignals: queue of { type, from_user_id, sdp?, candidate? }
+  pendingVoiceSignals: [],
+
+  setVoiceUser: (userId, data) =>
+    set((s) => ({ voiceUsers: { ...s.voiceUsers, [userId]: { ...s.voiceUsers[userId], ...data } } })),
+
+  removeVoiceUser: (userId) =>
+    set((s) => {
+      const next = { ...s.voiceUsers }
+      delete next[userId]
+      return { voiceUsers: next }
+    }),
+
+  pushVoiceSignal: (signal) =>
+    set((s) => ({ pendingVoiceSignals: [...s.pendingVoiceSignals, signal] })),
+
+  consumeVoiceSignals: () => {
+    const signals = get().pendingVoiceSignals
+    set({ pendingVoiceSignals: [] })
+    return signals
+  },
 }))
 
 export default useChatStore

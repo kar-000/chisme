@@ -1,8 +1,8 @@
 import asyncio
 from datetime import datetime
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -10,7 +10,9 @@ from app.database import get_db
 from app.models.attachment import Attachment
 from app.models.channel import Channel
 from app.models.message import Message
+from app.models.read_receipt import ReadReceipt
 from app.models.user import User
+from app.redis import voice as voice_mgr
 from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
 from app.websocket.manager import manager
@@ -18,13 +20,45 @@ from app.websocket.manager import manager
 router = APIRouter(prefix="/channels", tags=["channels"])
 
 
-@router.get("", response_model=List[ChannelResponse])
+def _unread_counts(channel_ids: list[int], user_id: int, db: Session) -> dict[int, int]:
+    """Return {channel_id: unread_count} for the given channels and user.
+
+    A message is unread if its id is greater than the user's last_read_message_id
+    for that channel, or if the user has no receipt at all.
+    """
+    if not channel_ids:
+        return {}
+
+    rows = (
+        db.query(
+            Message.channel_id.label("channel_id"),
+            func.count(Message.id).label("cnt"),
+        )
+        .outerjoin(
+            ReadReceipt,
+            (ReadReceipt.channel_id == Message.channel_id) & (ReadReceipt.user_id == user_id),
+        )
+        .filter(
+            Message.channel_id.in_(channel_ids),
+            Message.is_deleted == False,  # noqa: E712
+            or_(
+                ReadReceipt.last_read_message_id == None,  # noqa: E711
+                Message.id > ReadReceipt.last_read_message_id,
+            ),
+        )
+        .group_by(Message.channel_id)
+        .all()
+    )
+    return {row.channel_id: row.cnt for row in rows}
+
+
+@router.get("", response_model=list[ChannelResponse])
 async def list_channels(
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> List[ChannelResponse]:
+) -> list[ChannelResponse]:
     channels = (
         db.query(Channel)
         .filter(Channel.is_private == False)  # noqa: E712
@@ -32,7 +66,69 @@ async def list_channels(
         .limit(limit)
         .all()
     )
-    return [ChannelResponse.model_validate(c) for c in channels]
+    channel_ids = [c.id for c in channels]
+    unread = _unread_counts(channel_ids, current_user.id, db)
+
+    # Batch-fetch voice participant counts from Redis
+    voice_user_lists = await asyncio.gather(
+        *[voice_mgr.get_channel_voice_users(cid) for cid in channel_ids],
+        return_exceptions=True,
+    )
+    voice_counts = {
+        cid: len(result) if isinstance(result, list) else 0
+        for cid, result in zip(channel_ids, voice_user_lists, strict=False)
+    }
+
+    results = []
+    for c in channels:
+        resp = ChannelResponse.model_validate(c)
+        resp.unread_count = unread.get(c.id, 0)
+        resp.voice_count = voice_counts.get(c.id, 0)
+        results.append(resp)
+    return results
+
+
+@router.post("/{channel_id}/read", status_code=status.HTTP_204_NO_CONTENT)
+async def mark_channel_read(
+    channel_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Mark all current messages in a channel as read for the requesting user."""
+    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    if not channel:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
+
+    # Find the latest message in the channel
+    latest = (
+        db.query(Message.id)
+        .filter(Message.channel_id == channel_id, Message.is_deleted == False)  # noqa: E712
+        .order_by(Message.id.desc())
+        .first()
+    )
+    latest_id = latest[0] if latest else None
+
+    receipt = (
+        db.query(ReadReceipt)
+        .filter(
+            ReadReceipt.user_id == current_user.id,
+            ReadReceipt.channel_id == channel_id,
+        )
+        .first()
+    )
+
+    if receipt:
+        # Only advance — never go backwards (in case of race conditions)
+        if latest_id is not None and (receipt.last_read_message_id is None or latest_id > receipt.last_read_message_id):
+            receipt.last_read_message_id = latest_id
+    else:
+        receipt = ReadReceipt(
+            user_id=current_user.id,
+            channel_id=channel_id,
+            last_read_message_id=latest_id,
+        )
+        db.add(receipt)
+    db.commit()
 
 
 @router.post("", response_model=ChannelResponse)
@@ -75,7 +171,7 @@ async def get_channel_messages(
     channel_id: int,
     limit: int = Query(default=50, le=100),
     offset: int = Query(default=0, ge=0),
-    before: Optional[datetime] = Query(default=None),
+    before: datetime | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> MessageList:
@@ -86,8 +182,7 @@ async def get_channel_messages(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No access to channel")
 
     query = (
-        db.query(Message)
-        .filter(Message.channel_id == channel_id, Message.is_deleted == False)  # noqa: E712
+        db.query(Message).filter(Message.channel_id == channel_id, Message.is_deleted == False)  # noqa: E712
     )
     if before:
         query = query.filter(Message.created_at < before)
@@ -118,11 +213,15 @@ async def send_message(
 
     # Validate reply_to_id if provided
     if message_in.reply_to_id is not None:
-        parent = db.query(Message).filter(
-            Message.id == message_in.reply_to_id,
-            Message.channel_id == channel_id,
-            Message.is_deleted == False,  # noqa: E712
-        ).first()
+        parent = (
+            db.query(Message)
+            .filter(
+                Message.id == message_in.reply_to_id,
+                Message.channel_id == channel_id,
+                Message.is_deleted == False,  # noqa: E712
+            )
+            .first()
+        )
         if not parent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -152,9 +251,11 @@ async def send_message(
     response = MessageResponse.model_validate(message)
 
     # Broadcast new message to all connected channel clients
-    asyncio.ensure_future(manager.broadcast(
-        channel_id,
-        {"type": "message.new", "message": response.model_dump(mode="json")},
-    ))
+    asyncio.ensure_future(
+        manager.broadcast(
+            channel_id,
+            {"type": "message.new", "message": response.model_dump(mode="json")},
+        )
+    )
 
     return response

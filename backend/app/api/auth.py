@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.config import settings
-from app.core.security import create_access_token, get_password_hash, verify_password
 from app.database import get_db
 from app.models.channel import Channel
 from app.models.user import User
 from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserLogin, UserResponse
+from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -42,7 +42,8 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db)) -> Token:
     user = User(
         username=user_in.username,
         email=user_in.email,
-        hashed_password=get_password_hash(user_in.password),
+        hashed_password=auth_service.hash_password(user_in.password),
+        home_server=settings.SERVER_DOMAIN,
     )
     db.add(user)
     db.commit()
@@ -51,8 +52,8 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db)) -> Token:
     # Ensure #general channel exists for first user
     _ensure_general_channel(db, creator_id=user.id)
 
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
+    access_token = auth_service.create_access_token(
+        user,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return Token(access_token=access_token, token_type="bearer", user=UserResponse.model_validate(user))
@@ -62,14 +63,14 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db)) -> Token:
 async def login(credentials: UserLogin, db: Session = Depends(get_db)) -> Token:
     user = db.query(User).filter(User.username == credentials.username).first()
 
-    if not user or not verify_password(credentials.password, user.hashed_password):
+    if not user or not auth_service.verify_password(credentials.password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid credentials")
 
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account is inactive")
 
-    access_token = create_access_token(
-        data={"sub": str(user.id)},
+    access_token = auth_service.create_access_token(
+        user,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
     return Token(access_token=access_token, token_type="bearer", user=UserResponse.model_validate(user))
