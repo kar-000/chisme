@@ -46,6 +46,9 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
           <p className="text-[10px] text-[var(--text-muted)] tracking-wider mt-0.5">
             gossip with your people
           </p>
+          <p className="text-[9px] text-[var(--text-muted)] tracking-wider mt-0.5 opacity-40 select-none">
+            v{__APP_VERSION__}
+          </p>
         </div>
         <button
           onClick={onSearchOpen}
