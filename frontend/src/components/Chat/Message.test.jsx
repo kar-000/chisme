@@ -8,6 +8,21 @@ import useChatStore from '../../store/chatStore'
 vi.mock('../../store/authStore', () => ({ default: vi.fn() }))
 vi.mock('../../store/chatStore', () => ({ default: vi.fn() }))
 
+// TwemojiEmoji renders reaction emoji as <img> — mock the API so no CDN calls are needed
+vi.mock('@twemoji/api', () => ({
+  default: {
+    convert: {
+      toCodePoint: (emoji) =>
+        [...emoji].map((c) => c.codePointAt(0).toString(16)).join('-'),
+    },
+  },
+}))
+
+// EmojiPickerLazy is lazy-loaded; prevent it from being imported during Message tests
+vi.mock('./EmojiPickerLazy', () => ({
+  default: () => <div data-testid="mock-picker" />,
+}))
+
 const mockEditMessage = vi.fn()
 const mockDeleteMessage = vi.fn()
 const mockAddReaction = vi.fn()
@@ -74,7 +89,8 @@ describe('Message', () => {
       ],
     }
     render(<Message message={message} />)
-    expect(screen.getByText('👍')).toBeInTheDocument()
+    // Reactions are rendered as Twemoji <img> elements — query by alt text
+    expect(screen.getByAltText('👍')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
   })
 
