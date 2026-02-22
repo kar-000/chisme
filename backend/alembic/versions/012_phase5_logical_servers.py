@@ -118,8 +118,8 @@ def upgrade() -> None:
             'main',
             'The original Chisme community',
             (SELECT id FROM users ORDER BY created_at ASC LIMIT 1),
-            0,
-            0
+            FALSE,
+            FALSE
         WHERE EXISTS (SELECT 1 FROM users)
         """
     )
