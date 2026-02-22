@@ -74,8 +74,7 @@ export default function EmojiPicker({
   return (
     <div
       ref={containerRef}
-      className={`absolute ${positionClass} mb-2 z-30 rounded-lg overflow-hidden
-                  w-80 max-w-[calc(100vw-2rem)]
+      className={`absolute ${positionClass} mb-2 z-30 rounded overflow-hidden
                   border border-[var(--border-glow)]
                   shadow-[0_0_20px_rgba(0,206,209,0.3)]`}
       data-testid="emoji-picker"
