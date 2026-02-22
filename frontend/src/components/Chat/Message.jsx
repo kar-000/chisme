@@ -15,13 +15,15 @@ function MessageContent({ content, currentUsername, isOwn, onMentionClick }) {
       {parts.map((part, i) => {
         if (!part.startsWith('@')) return part
         const name = part.slice(1)
-        const isMe = name.toLowerCase() === currentUsername?.toLowerCase()
+        const isAll = name.toLowerCase() === 'all'
+        const isMe = !isAll && name.toLowerCase() === currentUsername?.toLowerCase()
+        const highlight = isAll || isMe
         return (
           <button
             key={i}
-            onClick={() => onMentionClick(name)}
+            onClick={() => !isAll && onMentionClick(name)}
             className={`font-bold font-mono transition-colors
-              ${isMe
+              ${highlight
                 ? 'text-[var(--crt-orange,#FF8C42)] bg-[rgba(255,140,66,0.15)] px-0.5 rounded hover:bg-[rgba(255,140,66,0.25)]'
                 : isOwn
                   ? 'text-[var(--text-own)] hover:underline'

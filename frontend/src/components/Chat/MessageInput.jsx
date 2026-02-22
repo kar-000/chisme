@@ -100,7 +100,12 @@ export default function MessageInput({ onTyping }) {
         if (!activeChannelId) return
         try {
           const { data } = await getChannelMembers(activeChannelId, m.query || undefined)
-          setMentionUsers(data.slice(0, 6))
+          const members = data.slice(0, 6)
+          // Prepend @all if the typed prefix is compatible (empty, or starts with 'all')
+          const q = m.query.toLowerCase()
+          const showAll = 'all'.startsWith(q)
+          const allEntry = { id: '__all__', username: 'all', display_name: 'Mention everyone' }
+          setMentionUsers(showAll ? [allEntry, ...members] : members)
         } catch {
           setMentionUsers([])
         }
@@ -247,8 +252,8 @@ export default function MessageInput({ onTyping }) {
                               ? 'bg-white/10 text-[var(--text-primary)]'
                               : 'text-[var(--text-muted)] hover:bg-white/5'}`}
               >
-                <span className="text-[var(--accent-teal)] flex-shrink-0">@</span>
-                <span className="text-[var(--text-lt)]">{u.username}</span>
+                <span className={`flex-shrink-0 ${u.id === '__all__' ? 'text-[#FF8C42]' : 'text-[var(--accent-teal)]'}`}>@</span>
+                <span className={u.id === '__all__' ? 'text-[#FF8C42] font-bold' : 'text-[var(--text-lt)]'}>{u.username}</span>
                 {u.display_name && (
                   <span className="text-[var(--text-muted)] text-xs truncate">{u.display_name}</span>
                 )}
