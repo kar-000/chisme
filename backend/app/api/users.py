@@ -33,6 +33,15 @@ async def search_users(
     return [UserResponse.model_validate(u) for u in users]
 
 
+@router.get("/by-username/{username}", response_model=UserResponse)
+async def get_user_by_username(username: str, db: Session = Depends(get_db)) -> UserResponse:
+    """Exact-match username lookup — used to resolve @mention clicks."""
+    user = db.query(User).filter(User.username == username.lower()).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return UserResponse.model_validate(user)
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(user_id: int, db: Session = Depends(get_db)) -> UserResponse:
     user = db.query(User).filter(User.id == user_id).first()

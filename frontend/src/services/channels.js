@@ -13,3 +13,5 @@ export const sendMessage = (channelId, content, attachmentIds = [], replyToId = 
     ...(replyToId != null && { reply_to_id: replyToId }),
   })
 export const markChannelRead = (channelId) => api.post(`/channels/${channelId}/read`)
+export const getChannelMembers = (channelId, q) =>
+  api.get(`/channels/${channelId}/members`, { params: q ? { q } : {} })

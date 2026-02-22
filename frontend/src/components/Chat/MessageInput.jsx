@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react'
 import useChatStore from '../../store/chatStore'
 import { uploadFile } from '../../services/uploads'
 import { attachGif } from '../../services/gifs'
+import { getChannelMembers } from '../../services/channels'
 import AttachmentPreview from './AttachmentPreview'
 import GifPicker from './GifPicker'
 
@@ -9,10 +10,27 @@ const TYPING_THROTTLE = 2000
 
 const ACCEPTED = 'image/*,video/mp4,video/webm,application/pdf,application/zip,text/plain'
 
+/** Find an active @mention trigger at the cursor — returns { query, triggerStart } or null. */
+function detectMention(text, cursorPos) {
+  const before = text.slice(0, cursorPos)
+  const atIdx = before.lastIndexOf('@')
+  if (atIdx === -1) return null
+  const fragment = before.slice(atIdx + 1)
+  if (/\s/.test(fragment)) return null // space ends the mention token
+  return { query: fragment, triggerStart: atIdx }
+}
+
 export default function MessageInput({ onTyping }) {
   const [content, setContent] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
+
+  // Mention autocomplete state
+  const [mention, setMention] = useState(null) // { query, triggerStart } | null
+  const [mentionUsers, setMentionUsers] = useState([])
+  const [mentionIdx, setMentionIdx] = useState(0)
+  const mentionTimerRef = useRef(null)
+
   const {
     sendMessage,
     activeChannelId,
@@ -38,15 +56,84 @@ export default function MessageInput({ onTyping }) {
     }
   }, [onTyping])
 
+  const closeMention = useCallback(() => {
+    setMention(null)
+    setMentionUsers([])
+    setMentionIdx(0)
+    clearTimeout(mentionTimerRef.current)
+  }, [])
+
+  const insertMention = useCallback((user) => {
+    if (!user || !mention) return
+    const cursor = textareaRef.current?.selectionStart ?? content.length
+    const before = content.slice(0, mention.triggerStart)
+    const after = content.slice(cursor)
+    const inserted = `${before}@${user.username} ${after}`
+    setContent(inserted)
+    closeMention()
+    // Restore focus and place cursor after the inserted mention
+    const newCursor = before.length + user.username.length + 2 // '@' + name + ' '
+    setTimeout(() => {
+      textareaRef.current?.focus()
+      textareaRef.current?.setSelectionRange(newCursor, newCursor)
+    }, 0)
+  }, [content, mention, closeMention])
+
   const handleChange = (e) => {
-    setContent(e.target.value)
+    const val = e.target.value
+    setContent(val)
+
+    // Auto-resize
     const el = textareaRef.current
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+
     handleTyping()
+
+    // Mention detection
+    const m = detectMention(val, e.target.selectionStart)
+    if (m) {
+      setMention(m)
+      setMentionIdx(0)
+      clearTimeout(mentionTimerRef.current)
+      mentionTimerRef.current = setTimeout(async () => {
+        if (!activeChannelId) return
+        try {
+          const { data } = await getChannelMembers(activeChannelId, m.query || undefined)
+          setMentionUsers(data.slice(0, 6))
+        } catch {
+          setMentionUsers([])
+        }
+      }, 150)
+    } else {
+      closeMention()
+    }
   }
 
   const handleKeyDown = (e) => {
+    // Intercept arrow/enter/tab/escape when mention popup is open
+    if (mention && mentionUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setMentionIdx((i) => Math.min(i + 1, mentionUsers.length - 1))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setMentionIdx((i) => Math.max(i - 1, 0))
+        return
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault()
+        insertMention(mentionUsers[mentionIdx])
+        return
+      }
+      if (e.key === 'Escape') {
+        closeMention()
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       submit()
@@ -102,6 +189,7 @@ export default function MessageInput({ onTyping }) {
     const text = content.trim()
     setContent('')
     clearPendingAttachments()
+    closeMention()
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     try {
       await sendMessage(text, readyIds)
@@ -145,6 +233,30 @@ export default function MessageInput({ onTyping }) {
       )}
 
       <div className="px-4 py-3 flex gap-2 items-end relative">
+        {/* Mention autocomplete popup */}
+        {mention && mentionUsers.length > 0 && (
+          <div className="absolute bottom-full left-4 right-4 mb-1 bg-[var(--bg-primary)]
+                          border border-[var(--border-glow)] rounded shadow-glow-lg overflow-hidden z-20">
+            {mentionUsers.map((u, i) => (
+              <button
+                key={u.id}
+                onMouseDown={(e) => { e.preventDefault(); insertMention(u) }}
+                className={`w-full text-left px-3 py-2 flex items-center gap-2 text-sm font-mono
+                            transition-colors border-b border-[var(--border)] last:border-0
+                            ${i === mentionIdx
+                              ? 'bg-white/10 text-[var(--text-primary)]'
+                              : 'text-[var(--text-muted)] hover:bg-white/5'}`}
+              >
+                <span className="text-[var(--accent-teal)] flex-shrink-0">@</span>
+                <span className="text-[var(--text-lt)]">{u.username}</span>
+                {u.display_name && (
+                  <span className="text-[var(--text-muted)] text-xs truncate">{u.display_name}</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Hidden file input */}
         <input
           ref={fileInputRef}

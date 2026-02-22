@@ -1,6 +1,7 @@
 import api from './api'
 
 export const getUser = (userId) => api.get(`/users/${userId}`)
+export const getUserByUsername = (username) => api.get(`/users/by-username/${username}`)
 
 export const searchUsers = (q, limit = 20) =>
   api.get('/users/search', { params: { q, limit } })
