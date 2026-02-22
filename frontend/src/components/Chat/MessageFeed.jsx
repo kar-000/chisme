@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
+import useServerStore from '../../store/serverStore'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import Message from './Message'
 import MessageSkeleton from './MessageSkeleton'
@@ -12,9 +13,10 @@ import FailoverBanner from '../Common/FailoverBanner'
 export default function MessageFeed({ onBack }) {
   const { messages, loadingMessages, activeChannelId } = useChatStore()
   const { token } = useAuthStore()
+  const activeServerId = useServerStore((s) => s.activeServerId)
   const bottomRef = useRef(null)
 
-  const { sendTyping, sendMsg, connected, reconnecting, failoverDetected } = useWebSocket(activeChannelId, token)
+  const { sendTyping, sendMsg, connected, reconnecting, failoverDetected } = useWebSocket(activeServerId, token)
 
   // Scroll to bottom when messages change
   useEffect(() => {
