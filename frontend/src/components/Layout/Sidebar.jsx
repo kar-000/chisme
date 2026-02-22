@@ -8,7 +8,16 @@ import useAuthStore from '../../store/authStore'
 import useDMStore from '../../store/dmStore'
 import useChatStore from '../../store/chatStore'
 
-function Avatar({ username }) {
+function Avatar({ username, avatarUrl }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={username}
+        className="w-8 h-8 rounded object-cover border border-[var(--border)] flex-shrink-0"
+      />
+    )
+  }
   const initials = username?.slice(0, 2).toUpperCase() ?? '??'
   return (
     <div className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold
@@ -95,7 +104,7 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
           className="flex items-center gap-2 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
           title="View profile"
         >
-          <Avatar username={user?.username} />
+          <Avatar username={user?.username} avatarUrl={user?.avatar_url} />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-[var(--text-primary)] truncate">
               {user?.display_name || user?.username}

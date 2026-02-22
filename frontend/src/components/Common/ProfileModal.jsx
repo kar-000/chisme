@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import Modal from './Modal'
 import StatusIndicator from './StatusIndicator'
 import useAuthStore from '../../store/authStore'
+import useDMStore from '../../store/dmStore'
+import useChatStore from '../../store/chatStore'
 import { getUser, updateMe, uploadAvatar } from '../../services/users'
 
 function Avatar({ username, avatarUrl, size = 56 }) {
@@ -32,6 +34,8 @@ function Avatar({ username, avatarUrl, size = 56 }) {
 export default function ProfileModal({ userId, onClose }) {
   const { user: me, setUser } = useAuthStore()
   const isOwn = userId === me?.id
+  const openDM = useDMStore((s) => s.openDM)
+  const clearActiveChannel = useChatStore((s) => s.clearActiveChannel)
 
   const [profile, setProfile] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -53,6 +57,12 @@ export default function ProfileModal({ userId, onClose }) {
       })
       .catch(() => setError('Could not load profile.'))
   }, [userId])
+
+  const handleMessageUser = async () => {
+    clearActiveChannel()
+    await openDM(userId)
+    onClose()
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -139,7 +149,13 @@ export default function ProfileModal({ userId, onClose }) {
               >
                 Edit Profile
               </button>
-          : null
+          : <button
+              onClick={handleMessageUser}
+              className="px-4 py-1.5 text-sm bg-[var(--crt-teal)] text-[var(--crt-dark)]
+                         font-bold rounded hover:opacity-90 transition-opacity"
+            >
+              Message
+            </button>
       }
     >
       {/* Header row */}

@@ -216,13 +216,21 @@ export default function Message({ message }) {
       onMouseLeave={() => setShowActions(false)}
     >
       {/* Avatar */}
-      <div
-        className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center
-                   text-[10px] font-bold bg-gradient-to-br from-crt-teal to-crt-teal-lt
-                   text-crt-bg shadow-glow-sm mt-0.5"
-      >
-        {message.user?.username?.slice(0, 2).toUpperCase()}
-      </div>
+      {message.user?.avatar_url ? (
+        <img
+          src={message.user.avatar_url}
+          alt={message.user.username}
+          className="w-8 h-8 rounded flex-shrink-0 object-cover border border-[var(--border)] mt-0.5"
+        />
+      ) : (
+        <div
+          className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center
+                     text-[10px] font-bold bg-gradient-to-br from-crt-teal to-crt-teal-lt
+                     text-crt-bg shadow-glow-sm mt-0.5"
+        >
+          {message.user?.username?.slice(0, 2).toUpperCase()}
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 min-w-0">
