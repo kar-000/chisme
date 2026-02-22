@@ -3,8 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MessageInput from './MessageInput'
 import useChatStore from '../../store/chatStore'
+import useServerStore from '../../store/serverStore'
 
 vi.mock('../../store/chatStore', () => ({ default: vi.fn() }))
+vi.mock('../../store/serverStore', () => ({ default: vi.fn() }))
 vi.mock('../../services/uploads', () => ({
   uploadFile: vi.fn(() => Promise.resolve({ data: { id: 99, url: '/uploads/x.png', mime_type: 'image/png', size: 100, original_filename: 'x.png' } })),
 }))
@@ -59,6 +61,7 @@ const defaultStore = {
 beforeEach(() => {
   vi.clearAllMocks()
   useChatStore.mockReturnValue(defaultStore)
+  useServerStore.mockImplementation((selector) => selector({ activeServerId: 1 }))
 })
 
 describe('MessageInput', () => {
@@ -83,7 +86,7 @@ describe('MessageInput', () => {
     const textarea = screen.getByRole('textbox')
     await userEvent.type(textarea, 'hello world')
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false })
-    expect(mockSendMessage).toHaveBeenCalledWith('hello world', [])
+    expect(mockSendMessage).toHaveBeenCalledWith(1, 'hello world', [])
   })
 
   it('does not submit on Shift+Enter', async () => {
