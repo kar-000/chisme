@@ -94,3 +94,28 @@ html, body, #root {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Emoji-mart CRT theme ─────────────────────────────────────────────── */
+/*
+ * emoji-mart v5 renders as a Shadow DOM custom element (<em-emoji-picker>).
+ * CSS custom properties set on the host cascade into the shadow tree,
+ * allowing full theming without piercing the shadow boundary.
+ *
+ * Variable format: --em-rgb-* accepts comma-separated RGB triplets (no alpha)
+ * so the picker can compose rgba() values internally for transparency layers.
+ */
+em-emoji-picker {
+  /* Colour palette */
+  --em-rgb-background:   10, 10, 10;           /* #0a0a0a — var(--bg-secondary)  */
+  --em-rgb-input:        0, 0, 0;              /* #000000 — input fields         */
+  --em-rgb-accent:       0, 206, 209;          /* #00CED1 — var(--accent-teal)   */
+  --em-color-border:     rgba(0, 206, 209, 0.2);
+  --em-font-family:      'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Sizing — matches GifPicker width */
+  width: 352px;
+  max-width: calc(100vw - 2rem);
+
+  /* Remove the default shadow — our wrapper already adds a teal glow */
+  --em-shadow: none;
+}

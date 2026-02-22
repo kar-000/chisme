@@ -5,6 +5,7 @@ import { attachGif } from '../../services/gifs'
 import { getChannelMembers } from '../../services/channels'
 import AttachmentPreview from './AttachmentPreview'
 import GifPicker from './GifPicker'
+import EmojiPicker from './EmojiPicker'
 
 const TYPING_THROTTLE = 2000
 
@@ -24,13 +25,13 @@ export default function MessageInput({ onTyping }) {
   const [content, setContent] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   // Mention autocomplete state
   const [mention, setMention] = useState(null) // { query, triggerStart } | null
   const [mentionUsers, setMentionUsers] = useState([])
   const [mentionIdx, setMentionIdx] = useState(0)
   const mentionTimerRef = useRef(null)
-
   const {
     sendMessage,
     activeChannelId,
@@ -47,6 +48,15 @@ export default function MessageInput({ onTyping }) {
   const lastTypingSent = useRef(0)
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
+  const emojiButtonRef = useRef(null)
+  // Tracks the last known cursor position so emoji can be inserted at the right
+  // spot even after the textarea loses focus when the picker opens.
+  const selectionRef = useRef({ start: 0, end: 0 })
+
+  const saveSelection = useCallback(() => {
+    const el = textareaRef.current
+    if (el) selectionRef.current = { start: el.selectionStart, end: el.selectionEnd }
+  }, [])
 
   const handleTyping = useCallback(() => {
     const now = Date.now()
@@ -79,6 +89,24 @@ export default function MessageInput({ onTyping }) {
     }, 0)
   }, [content, mention, closeMention])
 
+  // Insert an emoji at the saved cursor position (or current caret if still focused)
+  const insertEmoji = useCallback((emoji) => {
+    saveSelection()
+    const { start, end } = selectionRef.current
+    setContent((prev) => prev.slice(0, start) + emoji + prev.slice(end))
+    // Advance saved position past the inserted characters (codepoint-aware)
+    const nextPos = start + [...emoji].length
+    selectionRef.current = { start: nextPos, end: nextPos }
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (el) {
+        el.focus()
+        el.selectionStart = nextPos
+        el.selectionEnd = nextPos
+      }
+    })
+  }, [saveSelection])
+
   const handleChange = (e) => {
     const val = e.target.value
     setContent(val)
@@ -87,7 +115,7 @@ export default function MessageInput({ onTyping }) {
     const el = textareaRef.current
     el.style.height = 'auto'
     el.style.height = Math.min(el.scrollHeight, 160) + 'px'
-
+    saveSelection()
     handleTyping()
 
     // Mention detection
@@ -281,6 +309,15 @@ export default function MessageInput({ onTyping }) {
           />
         )}
 
+        {/* Emoji picker (positioned above this row) */}
+        {showEmojiPicker && (
+          <EmojiPicker
+            onSelect={insertEmoji}
+            onClose={() => setShowEmojiPicker(false)}
+            anchorRef={emojiButtonRef}
+          />
+        )}
+
         {/* Paperclip button */}
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -313,11 +350,31 @@ export default function MessageInput({ onTyping }) {
           GIF
         </button>
 
+        {/* Emoji button — onMouseDown prevents focus theft so cursor position is preserved */}
+        <button
+          ref={emojiButtonRef}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setShowEmojiPicker((v) => !v)}
+          className="
+            h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+            border border-[var(--border)] text-[var(--text-muted)]
+            hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+            hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
+            transition-all duration-200 text-base
+          "
+          title="Insert emoji"
+          data-testid="emoji-button"
+        >
+          😊
+        </button>
+
         <textarea
           ref={textareaRef}
           value={content}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onSelect={saveSelection}
+          onBlur={saveSelection}
           placeholder={dragOver ? 'Drop files here…' : 'Message…  (Enter to send, Shift+Enter for newline)'}
           rows={1}
           className="

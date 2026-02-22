@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
 import ProfileModal from '../Common/ProfileModal'
 import { getUserByUsername } from '../../services/users'
+import EmojiPicker from './EmojiPicker'
+import TwemojiEmoji from '../Common/TwemojiEmoji'
 
 /**
  * Render message content with clickable, highlighted @mentions.
@@ -173,7 +175,7 @@ function ReactionBar({ reactions = [], messageId }) {
               }
             `}
           >
-            <span>{emoji}</span>
+            <TwemojiEmoji emoji={emoji} size="1em" />
             <span className="text-[var(--text-muted)] font-mono">{count}</span>
           </button>
         )
@@ -188,7 +190,9 @@ export default function Message({ message }) {
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
+  const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [profileUserId, setProfileUserId] = useState(null)
+  const reactionButtonRef = useRef(null)
 
   const isOwn = message.user_id === user?.id
 
@@ -289,7 +293,8 @@ export default function Message({ message }) {
 
       {/* Hover actions */}
       {showActions && !editing && (
-        <div className="flex items-start gap-1 flex-shrink-0">
+        <div className="relative flex items-start gap-1 flex-shrink-0">
+          {/* Quick-react presets */}
           {['👍', '❤️', '😂', '🎉'].map((e) => (
             <button
               key={e}
@@ -300,6 +305,28 @@ export default function Message({ message }) {
               {e}
             </button>
           ))}
+
+          {/* Full emoji picker for reactions */}
+          <button
+            ref={reactionButtonRef}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowReactionPicker((v) => !v)}
+            className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors px-1"
+            title="Add reaction"
+            data-testid="add-reaction-button"
+          >
+            +😊
+          </button>
+
+          {showReactionPicker && (
+            <EmojiPicker
+              onSelect={(emoji) => addReaction(message.id, emoji)}
+              onClose={() => setShowReactionPicker(false)}
+              anchorRef={reactionButtonRef}
+              positionClass="bottom-full right-0"
+            />
+          )}
+
           <button
             onClick={() => setReplyingTo(message)}
             className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors px-1"
