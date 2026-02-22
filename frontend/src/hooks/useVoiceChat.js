@@ -16,7 +16,7 @@ import useChatStore from '../store/chatStore'
 
 const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }]
 
-export function useVoiceChat(channelId, currentUser, sendMsg) {
+export function useVoiceChat(currentUser, sendMsg) {
   const [inVoice, setInVoice] = useState(false)
   const [muted, setMuted] = useState(true)
   const [micError, setMicError] = useState(null)
@@ -258,12 +258,12 @@ export function useVoiceChat(channelId, currentUser, sendMsg) {
     sendMsg({ type: 'voice.state_update', muted: newMuted, video: false, speaking: false })
   }, [muted, sendMsg])
 
-  // ── Cleanup on unmount or channel switch ─────────────────────────────────
+  // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (inVoiceRef.current) leaveVoice()
     }
-  }, [channelId, leaveVoice])
+  }, [leaveVoice])
 
   return { inVoice, muted, micError, joinVoice, leaveVoice, toggleMute }
 }

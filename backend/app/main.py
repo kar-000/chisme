@@ -27,6 +27,7 @@ from app.config import settings
 from app.database import configure_wal_for_replication, get_db
 from app.redis.client import close_redis, init_redis
 from app.websocket.handlers import channel_ws_handler, dm_ws_handler
+from app.websocket.voice_handler import voice_ws_handler
 
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
@@ -104,6 +105,11 @@ async def websocket_endpoint(websocket: WebSocket, channel_id: int, db: Session 
 @app.websocket("/ws/dm/{dm_id}")
 async def dm_websocket_endpoint(websocket: WebSocket, dm_id: int, db: Session = Depends(get_db)) -> None:
     await dm_ws_handler(websocket, dm_id, db)
+
+
+@app.websocket("/ws/voice")
+async def voice_websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)) -> None:
+    await voice_ws_handler(websocket, db)
 
 
 # ---------------------------------------------------------------------------

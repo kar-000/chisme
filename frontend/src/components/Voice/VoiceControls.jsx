@@ -18,10 +18,9 @@ function micErrorLabel(micError) {
   return 'mic unavailable'
 }
 
-export default function VoiceControls({ channelId, currentUser, sendMsg, connected }) {
+export default function VoiceControls({ currentUser, sendMsg, connected }) {
   const voiceUsers = useChatStore((s) => s.voiceUsers)
   const { inVoice, muted, micError, joinVoice, leaveVoice, toggleMute } = useVoiceChat(
-    channelId,
     currentUser,
     sendMsg,
   )

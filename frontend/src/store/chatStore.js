@@ -50,8 +50,6 @@ const useChatStore = create((set, get) => ({
       typingUsers: [],
       pendingAttachments: [],
       replyingTo: null,
-      voiceUsers: {},
-      pendingVoiceSignals: [],
       unreadCounts: { ...s.unreadCounts, [channelId]: 0 },
     }))
     get().fetchMessages(channelId)

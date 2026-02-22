@@ -8,11 +8,10 @@ import MessageInput from './MessageInput'
 import TypingIndicator from './TypingIndicator'
 import Header from '../Layout/Header'
 import FailoverBanner from '../Common/FailoverBanner'
-import VoiceControls from '../Voice/VoiceControls'
 
 export default function MessageFeed({ onBack }) {
   const { messages, loadingMessages, activeChannelId } = useChatStore()
-  const { token, user } = useAuthStore()
+  const { token } = useAuthStore()
   const bottomRef = useRef(null)
 
   const { sendTyping, sendMsg, connected, reconnecting, failoverDetected } = useWebSocket(activeChannelId, token)
@@ -50,7 +49,6 @@ export default function MessageFeed({ onBack }) {
       </div>
 
       <TypingIndicator />
-      <VoiceControls channelId={activeChannelId} currentUser={user} sendMsg={sendMsg} connected={connected} />
       <MessageInput onTyping={sendTyping} />
     </div>
   )

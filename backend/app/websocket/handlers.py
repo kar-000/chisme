@@ -9,7 +9,6 @@ from app.core import events
 from app.models.dm_channel import DirectMessageChannel
 from app.models.user import User
 from app.redis import presence as presence_mgr
-from app.redis import voice as voice_mgr
 from app.services import auth_service
 from app.websocket.manager import manager
 
@@ -75,15 +74,6 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
         },
     )
 
-    # Send current voice channel occupants to the newly connected user
-    snapshot = manager.get_voice_users(channel_id)
-    if snapshot:
-        await manager.send_to_user(
-            channel_id,
-            user.id,
-            {"type": events.VOICE_STATE_SNAPSHOT, "channel_id": channel_id, "users": snapshot},
-        )
-
     try:
         while True:
             raw = await websocket.receive_text()
@@ -103,117 +93,10 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
                 elif event_type == "presence.heartbeat":
                     await presence_mgr.heartbeat(user.id)
 
-                # ------------------------------------------------------------------
-                # Voice signaling
-                # ------------------------------------------------------------------
-                elif event_type == events.VOICE_JOIN:
-                    muted = bool(data.get("muted", False))
-                    video = bool(data.get("video", False))
-                    manager.voice_user_join(channel_id, user.id, user.username, muted, video)
-                    await voice_mgr.join_voice(channel_id, user.id, muted=muted, video=video)
-                    await manager.broadcast(
-                        channel_id,
-                        {
-                            "type": events.VOICE_USER_JOINED,
-                            "channel_id": channel_id,
-                            "user_id": user.id,
-                            "username": user.username,
-                            "muted": muted,
-                            "video": video,
-                        },
-                    )
-
-                elif event_type == events.VOICE_LEAVE:
-                    manager.voice_user_leave(channel_id, user.id)
-                    await voice_mgr.leave_voice(channel_id, user.id)
-                    await manager.broadcast(
-                        channel_id,
-                        {
-                            "type": events.VOICE_USER_LEFT,
-                            "channel_id": channel_id,
-                            "user_id": user.id,
-                            "username": user.username,
-                        },
-                    )
-
-                elif event_type == events.VOICE_STATE_UPDATE:
-                    muted = bool(data.get("muted", False))
-                    video = bool(data.get("video", False))
-                    speaking = bool(data.get("speaking", False))
-                    manager.voice_user_update(channel_id, user.id, muted, video, speaking)
-                    await voice_mgr.update_state(user.id, channel_id, muted=muted, video=video)
-                    await manager.broadcast(
-                        channel_id,
-                        {
-                            "type": events.VOICE_STATE_CHANGED,
-                            "channel_id": channel_id,
-                            "user_id": user.id,
-                            "muted": muted,
-                            "video": video,
-                            "speaking": speaking,
-                        },
-                    )
-
-                elif event_type == events.VOICE_OFFER:
-                    target_id = data.get("target_user_id")
-                    if isinstance(target_id, int) and manager.is_in_voice(channel_id, target_id):
-                        await manager.send_to_user(
-                            channel_id,
-                            target_id,
-                            {
-                                "type": events.VOICE_OFFER,
-                                "from_user_id": user.id,
-                                "sdp": data.get("sdp"),
-                            },
-                        )
-
-                elif event_type == events.VOICE_ANSWER:
-                    target_id = data.get("target_user_id")
-                    if isinstance(target_id, int) and manager.is_in_voice(channel_id, target_id):
-                        await manager.send_to_user(
-                            channel_id,
-                            target_id,
-                            {
-                                "type": events.VOICE_ANSWER,
-                                "from_user_id": user.id,
-                                "sdp": data.get("sdp"),
-                            },
-                        )
-
-                elif event_type == events.VOICE_ICE_CANDIDATE:
-                    target_id = data.get("target_user_id")
-                    if isinstance(target_id, int) and manager.is_in_voice(channel_id, target_id):
-                        await manager.send_to_user(
-                            channel_id,
-                            target_id,
-                            {
-                                "type": events.VOICE_ICE_CANDIDATE,
-                                "from_user_id": user.id,
-                                "candidate": data.get("candidate"),
-                            },
-                        )
-
-                elif event_type == events.VOICE_HEARTBEAT:
-                    await voice_mgr.heartbeat(channel_id, user.id)
-
             except Exception as exc:
                 logger.error("Error handling event %r from user %s: %s", event_type, user.id, exc, exc_info=True)
 
     except WebSocketDisconnect:
-        # Auto-leave voice if connected
-        if manager.is_in_voice(channel_id, user.id):
-            manager.voice_user_leave(channel_id, user.id)
-            await voice_mgr.leave_voice(channel_id, user.id)
-            await manager.broadcast(
-                channel_id,
-                {
-                    "type": events.VOICE_USER_LEFT,
-                    "channel_id": channel_id,
-                    "user_id": user.id,
-                    "username": user.username,
-                },
-            )
-
         manager.disconnect(user.id, channel_id)
         await presence_mgr.set_offline(user.id)
         await manager.broadcast(
