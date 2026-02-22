@@ -4,6 +4,11 @@ A single /ws/voice endpoint serves the entire server — voice state is
 not tied to any text channel.  All connected clients receive all voice
 events, and P2P signaling (offer/answer/ICE) is relayed directly between
 voice participants without knowing which text channel they are viewing.
+
+NOTE: VoiceConnectionManager is an in-memory singleton, matching the same
+design as ConnectionManager in manager.py.  Both assume a single-process
+deployment (single uvicorn worker).  A Redis-backed implementation would
+be required for multi-worker/multi-node setups.
 """
 
 import json
@@ -13,12 +18,12 @@ from fastapi import WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core import events
-from app.services import auth_service
+from app.websocket.handlers import _authenticate
 
 logger = logging.getLogger(__name__)
 
-# Sentinel value kept for protocol compatibility (voice.state_snapshot includes
-# channel_id; 0 signals "global / server-wide").
+# channel_id value included in voice protocol messages.
+# 0 signals "global / server-wide" — there is no corresponding DB row.
 GLOBAL_VOICE_CHANNEL = 0
 
 
@@ -106,45 +111,32 @@ class VoiceConnectionManager:
             self.disconnect(user_id)
 
 
-# Module-level singleton — shared across all connections
+# Module-level singleton — shared across all connections (single-process only)
 voice_manager = VoiceConnectionManager()
 
 
 async def voice_ws_handler(websocket: WebSocket, db: Session) -> None:
     """Full lifecycle handler for the global /ws/voice endpoint."""
-    await websocket.accept()
-    user = None
-    try:
-        # ── Auth handshake ─────────────────────────────────────────────
-        try:
-            raw = await websocket.receive_text()
-            data = json.loads(raw)
-        except (WebSocketDisconnect, Exception):
-            await websocket.close(code=1008)
-            return
+    # Reuse the shared auth helper (accepts + verifies the JWT handshake)
+    user = await _authenticate(websocket, db)
+    if user is None:
+        return
 
-        if data.get("type") != "auth":
-            await websocket.close(code=1008)
-            return
+    await voice_manager.connect(user.id, websocket)
 
-        user = auth_service.get_user_from_token(data.get("token", ""), db)
-        if not user:
-            await websocket.close(code=1008)
-            return
-
-        await voice_manager.connect(user.id, websocket)
-
-        # Send current voice participants to the new connection
-        await websocket.send_text(
-            json.dumps(
-                {
-                    "type": events.VOICE_STATE_SNAPSHOT,
-                    "channel_id": GLOBAL_VOICE_CHANNEL,
-                    "users": voice_manager.get_snapshot(),
-                }
-            )
+    # Send the current participant list to the newly connected client so it
+    # can clear any stale state from a previous session.
+    await websocket.send_text(
+        json.dumps(
+            {
+                "type": events.VOICE_STATE_SNAPSHOT,
+                "channel_id": GLOBAL_VOICE_CHANNEL,
+                "users": voice_manager.get_snapshot(),
+            }
         )
+    )
 
+    try:
         # ── Message loop ───────────────────────────────────────────────
         while True:
             raw = await websocket.receive_text()
@@ -198,15 +190,35 @@ async def voice_ws_handler(websocket: WebSocket, db: Session) -> None:
                         exclude=user.id,
                     )
 
-                elif msg_type in (events.VOICE_OFFER, events.VOICE_ANSWER, events.VOICE_ICE_CANDIDATE):
+                elif msg_type in (events.VOICE_OFFER, events.VOICE_ANSWER):
                     target_id = msg.get("target_user_id")
                     if not isinstance(target_id, int):
                         continue
                     if not voice_manager.is_in_voice(target_id):
                         continue
-                    relay = {k: v for k, v in msg.items() if k != "target_user_id"}
-                    relay["from_user_id"] = user.id
-                    await voice_manager.send_to(target_id, relay)
+                    await voice_manager.send_to(
+                        target_id,
+                        {
+                            "type": msg_type,
+                            "from_user_id": user.id,
+                            "sdp": msg.get("sdp"),
+                        },
+                    )
+
+                elif msg_type == events.VOICE_ICE_CANDIDATE:
+                    target_id = msg.get("target_user_id")
+                    if not isinstance(target_id, int):
+                        continue
+                    if not voice_manager.is_in_voice(target_id):
+                        continue
+                    await voice_manager.send_to(
+                        target_id,
+                        {
+                            "type": msg_type,
+                            "from_user_id": user.id,
+                            "candidate": msg.get("candidate"),
+                        },
+                    )
 
                 elif msg_type == events.VOICE_HEARTBEAT:
                     pass  # keepalive — no action needed
@@ -225,15 +237,14 @@ async def voice_ws_handler(websocket: WebSocket, db: Session) -> None:
     except Exception as exc:
         logger.exception("voice_ws_handler: unexpected error: %s", exc)
     finally:
-        if user is not None:
-            was_in_voice = voice_manager.is_in_voice(user.id)
-            voice_manager.leave_voice(user.id)
-            voice_manager.disconnect(user.id)
-            if was_in_voice:
-                await voice_manager.broadcast(
-                    {
-                        "type": events.VOICE_USER_LEFT,
-                        "channel_id": GLOBAL_VOICE_CHANNEL,
-                        "user_id": user.id,
-                    }
-                )
+        was_in_voice = voice_manager.is_in_voice(user.id)
+        voice_manager.leave_voice(user.id)
+        voice_manager.disconnect(user.id)
+        if was_in_voice:
+            await voice_manager.broadcast(
+                {
+                    "type": events.VOICE_USER_LEFT,
+                    "channel_id": GLOBAL_VOICE_CHANNEL,
+                    "user_id": user.id,
+                }
+            )

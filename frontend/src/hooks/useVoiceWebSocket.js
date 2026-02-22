@@ -24,6 +24,7 @@ export function useVoiceWebSocket(token) {
   const attemptsRef = useRef(0)
   const mountedRef = useRef(true)
 
+  const setVoiceSnapshot = useChatStore((s) => s.setVoiceSnapshot)
   const setVoiceUser = useChatStore((s) => s.setVoiceUser)
   const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
   const pushVoiceSignal = useChatStore((s) => s.pushVoiceSignal)
@@ -54,7 +55,8 @@ export function useVoiceWebSocket(token) {
 
       switch (data.type) {
         case 'voice.state_snapshot':
-          data.users.forEach((u) => setVoiceUser(u.user_id, u))
+          // Atomically replace state — clears anyone who left during a disconnect
+          setVoiceSnapshot(data.users)
           break
         case 'voice.user_joined':
           setVoiceUser(data.user_id, {
@@ -95,7 +97,7 @@ export function useVoiceWebSocket(token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [token, setVoiceUser, removeVoiceUser, pushVoiceSignal])
+  }, [token, setVoiceSnapshot, setVoiceUser, removeVoiceUser, pushVoiceSignal])
 
   useEffect(() => {
     mountedRef.current = true

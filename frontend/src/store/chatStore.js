@@ -209,6 +209,14 @@ const useChatStore = create((set, get) => ({
   // pendingVoiceSignals: queue of { type, from_user_id, sdp?, candidate? }
   pendingVoiceSignals: [],
 
+  // Replace the entire voiceUsers map atomically — used on reconnect to
+  // discard any participants who left while the WS was down.
+  setVoiceSnapshot: (users) => {
+    const voiceUsers = {}
+    users.forEach((u) => { voiceUsers[u.user_id] = { ...u } })
+    set({ voiceUsers })
+  },
+
   setVoiceUser: (userId, data) =>
     set((s) => ({ voiceUsers: { ...s.voiceUsers, [userId]: { ...s.voiceUsers[userId], ...data } } })),
 
