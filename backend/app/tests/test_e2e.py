@@ -17,13 +17,26 @@ class TestFullChatFlow:
         me = client.get("/api/auth/me", headers=headers)
         assert me.json()["username"] == "alice"
 
+        # 2.5. Get main server
+        servers = client.get("/api/servers", headers=headers)
+        assert servers.status_code == 200
+        server_id = servers.json()[0]["id"]
+
         # 3. Create channel
-        ch = client.post("/api/channels", json={"name": "e2e-chat", "description": "E2E test"}, headers=headers)
-        assert ch.status_code == 200
+        ch = client.post(
+            f"/api/servers/{server_id}/channels",
+            json={"name": "e2e-chat", "description": "E2E test"},
+            headers=headers,
+        )
+        assert ch.status_code == 201
         ch_id = ch.json()["id"]
 
         # 4. Send message
-        msg = client.post(f"/api/channels/{ch_id}/messages", json={"content": "Hola!"}, headers=headers)
+        msg = client.post(
+            f"/api/servers/{server_id}/channels/{ch_id}/messages",
+            json={"content": "Hola!"},
+            headers=headers,
+        )
         assert msg.status_code == 200
         msg_id = msg.json()["id"]
 
@@ -32,7 +45,7 @@ class TestFullChatFlow:
         assert react.status_code == 200
 
         # 6. Read message history — reaction should be included
-        history = client.get(f"/api/channels/{ch_id}/messages", headers=headers)
+        history = client.get(f"/api/servers/{server_id}/channels/{ch_id}/messages", headers=headers)
         assert history.status_code == 200
         messages = history.json()["messages"]
         assert any(any(r["emoji"] == "🎉" for r in m.get("reactions", [])) for m in messages)

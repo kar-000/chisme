@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 
 class TestUploadEndpoint:
@@ -76,7 +76,12 @@ class TestUploadEndpoint:
 
 class TestAttachmentInMessages:
     def _make_channel(self, client, headers):
-        return client.post("/api/channels", json={"name": "media-room"}, headers=headers).json()
+        sid = get_server_id(client, headers)
+        resp = client.post(f"/api/servers/{sid}/channels", json={"name": "media-room"}, headers=headers)
+        assert resp.status_code == 201
+        data = resp.json()
+        data["server_id"] = sid
+        return data
 
     def _upload(self, client, headers):
         png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 20
@@ -92,7 +97,7 @@ class TestAttachmentInMessages:
         att = self._upload(client, headers)
 
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "look at this", "attachment_ids": [att["id"]]},
             headers=headers,
         )
@@ -108,7 +113,7 @@ class TestAttachmentInMessages:
         att = self._upload(client, headers)
 
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "", "attachment_ids": [att["id"]]},
             headers=headers,
         )
@@ -119,7 +124,7 @@ class TestAttachmentInMessages:
         headers = auth_headers(client)
         channel = self._make_channel(client, headers)
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "", "attachment_ids": []},
             headers=headers,
         )
@@ -133,7 +138,7 @@ class TestAttachmentInMessages:
         att = self._upload(client, headers_a)
 
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "mine now", "attachment_ids": [att["id"]]},
             headers=headers_b,
         )
@@ -146,12 +151,15 @@ class TestAttachmentInMessages:
         channel = self._make_channel(client, headers)
         att = self._upload(client, headers)
         client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "img", "attachment_ids": [att["id"]]},
             headers=headers,
         )
 
-        resp = client.get(f"/api/channels/{channel['id']}/messages", headers=headers)
+        resp = client.get(
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
+            headers=headers,
+        )
         assert resp.status_code == 200
         msgs = resp.json()["messages"]
         assert len(msgs[0]["attachments"]) == 1
@@ -163,7 +171,7 @@ class TestAttachmentInMessages:
         att = self._upload(client, headers)
 
         msg_resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "bye", "attachment_ids": [att["id"]]},
             headers=headers,
         )
@@ -173,7 +181,10 @@ class TestAttachmentInMessages:
         assert del_resp.status_code == 200
 
         # Soft-deleted messages no longer appear in the channel feed
-        feed = client.get(f"/api/channels/{channel['id']}/messages", headers=headers).json()
+        feed = client.get(
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
+            headers=headers,
+        ).json()
         msg_ids_in_feed = [m["id"] for m in feed["messages"]]
         assert msg_id not in msg_ids_in_feed
 

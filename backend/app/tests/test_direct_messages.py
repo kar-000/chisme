@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 
 @pytest.fixture()
@@ -171,9 +171,16 @@ class TestDMMessages:
 
     def test_dm_reply_cross_channel_fails(self, client: TestClient, alice_headers, dm):
         """Cannot reply to a channel message from inside a DM."""
-        channel = client.post("/api/channels", json={"name": "crosstest"}, headers=alice_headers).json()
+        sid = get_server_id(client, alice_headers)
+        channel_resp = client.post(
+            f"/api/servers/{sid}/channels",
+            json={"name": "crosstest"},
+            headers=alice_headers,
+        )
+        assert channel_resp.status_code == 201
+        channel = channel_resp.json()
         channel_msg = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{sid}/channels/{channel['id']}/messages",
             json={"content": "In channel"},
             headers=alice_headers,
         ).json()
