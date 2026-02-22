@@ -93,7 +93,7 @@ export default function DMView({ onBack }) {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0" data-testid="dm-view">
       {/* DM header */}
-      <div className="px-4 py-3 border-b border-[var(--border)] flex items-center gap-2 flex-shrink-0">
+      <div className="sticky top-0 z-10 px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-primary)] flex items-center gap-2 flex-shrink-0">
         <button
           onClick={onBack}
           className="md:hidden text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg transition-colors flex-shrink-0"

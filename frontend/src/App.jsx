@@ -44,7 +44,7 @@ function ChatLayout() {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
+      <div className="flex overflow-hidden bg-[var(--bg-primary)]" style={{ height: '100dvh' }}>
         <Sidebar
           onSearchOpen={() => setSearchOpen(true)}
           onNavigate={handleNavigate}
