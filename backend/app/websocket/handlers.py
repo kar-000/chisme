@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core import events
 from app.models.dm_channel import DirectMessageChannel
+from app.models.server_membership import ServerMembership
 from app.models.user import User
 from app.redis import presence as presence_mgr
 from app.services import auth_service
@@ -24,13 +25,16 @@ async def _ws_close(websocket: WebSocket, code: int = 1008) -> None:
 
 
 async def _authenticate(websocket: WebSocket, db: Session) -> User | None:
-    """Expect the first message to be {"type": "auth", "token": "<jwt>"}."""
-    await websocket.accept()  # must accept before receive_text()
+    """Accept the socket and expect the first message to be
+    {"type": "auth", "token": "<jwt>"}.
+    Returns the authenticated User or None on failure.
+    """
+    await websocket.accept()
     try:
         raw = await websocket.receive_text()
         data = json.loads(raw)
     except WebSocketDisconnect:
-        return None  # client disconnected before sending auth
+        return None
     except Exception:
         await _ws_close(websocket)
         return None
@@ -48,25 +52,43 @@ async def _authenticate(websocket: WebSocket, db: Session) -> User | None:
     return user
 
 
-async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session) -> None:
-    """Full lifecycle handler for a channel WebSocket connection."""
+async def server_ws_handler(websocket: WebSocket, server_id: int, db: Session) -> None:
+    """Full lifecycle handler for a server-level WebSocket connection.
+
+    Handles text channels, typing indicators, and presence for a single server.
+    Voice signaling is still routed through this connection — payloads include
+    channel_id so the frontend can route them to the correct channel room.
+    """
     user = await _authenticate(websocket, db)
     if user is None:
         return
 
-    await manager.connect(websocket, channel_id, user.id)
+    # Verify membership before accepting the connection
+    membership = (
+        db.query(ServerMembership)
+        .filter(
+            ServerMembership.server_id == server_id,
+            ServerMembership.user_id == user.id,
+        )
+        .first()
+    )
+    if not membership:
+        await _ws_close(websocket, code=4003)
+        return
+
+    await manager.connect(websocket, server_id, user.id)
     await presence_mgr.set_online(user.id)
-    # Announce join + presence
-    await manager.broadcast(
-        channel_id,
+
+    await manager.broadcast_to_server(
+        server_id,
         {
             "type": events.USER_JOINED,
             "user_id": user.id,
             "username": user.username,
         },
     )
-    await manager.broadcast(
-        channel_id,
+    await manager.broadcast_to_server(
+        server_id,
         {
             "type": events.PRESENCE_CHANGED,
             "user_id": user.id,
@@ -86,25 +108,43 @@ async def channel_ws_handler(websocket: WebSocket, channel_id: int, db: Session)
 
             try:
                 if event_type == events.USER_TYPING:
-                    await manager.broadcast(
-                        channel_id,
-                        {"type": events.USER_TYPING, "user_id": user.id, "username": user.username},
+                    # Typing events include channel_id so the frontend
+                    # shows the indicator only in the correct channel.
+                    await manager.broadcast_to_server(
+                        server_id,
+                        {
+                            "type": events.USER_TYPING,
+                            "channel_id": data.get("channel_id"),
+                            "user_id": user.id,
+                            "username": user.username,
+                        },
+                        exclude_user_id=user.id,
                     )
                 elif event_type == "presence.heartbeat":
                     await presence_mgr.heartbeat(user.id)
 
             except Exception as exc:
-                logger.error("Error handling event %r from user %s: %s", event_type, user.id, exc, exc_info=True)
+                logger.error(
+                    "Error handling event %r from user %s: %s",
+                    event_type,
+                    user.id,
+                    exc,
+                    exc_info=True,
+                )
 
     except WebSocketDisconnect:
-        manager.disconnect(user.id, channel_id)
+        manager.disconnect(user.id, server_id)
         await presence_mgr.set_offline(user.id)
-        await manager.broadcast(
-            channel_id,
-            {"type": events.USER_LEFT, "user_id": user.id, "username": user.username},
+        await manager.broadcast_to_server(
+            server_id,
+            {
+                "type": events.USER_LEFT,
+                "user_id": user.id,
+                "username": user.username,
+            },
         )
-        await manager.broadcast(
-            channel_id,
+        await manager.broadcast_to_server(
+            server_id,
             {
                 "type": events.PRESENCE_CHANGED,
                 "user_id": user.id,
@@ -119,10 +159,9 @@ async def dm_ws_handler(websocket: WebSocket, dm_id: int, db: Session) -> None:
     if user is None:
         return
 
-    # Verify user is a participant of this DM channel
     dm = db.query(DirectMessageChannel).filter(DirectMessageChannel.id == dm_id).first()
     if not dm or user.id not in (dm.user1_id, dm.user2_id):
-        await websocket.close(code=1008)
+        await _ws_close(websocket, code=1008)
         return
 
     await manager.connect_dm(websocket, dm_id, user.id)
@@ -141,7 +180,11 @@ async def dm_ws_handler(websocket: WebSocket, dm_id: int, db: Session) -> None:
             if event_type == events.USER_TYPING:
                 await manager.broadcast_dm(
                     dm_id,
-                    {"type": events.USER_TYPING, "user_id": user.id, "username": user.username},
+                    {
+                        "type": events.USER_TYPING,
+                        "user_id": user.id,
+                        "username": user.username,
+                    },
                 )
             elif event_type == "presence.heartbeat":
                 await presence_mgr.heartbeat(user.id)

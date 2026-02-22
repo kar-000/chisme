@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     VAPID_PUBLIC_KEY: str = ""
     VAPID_CLAIMS_EMAIL: str = "mailto:admin@localhost"
 
+    # SMTP — optional, for operator notifications on server creation.
+    # If SMTP_HOST is empty, events are logged only (visible in docker compose logs).
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_TLS: bool = True
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_ADMIN_EMAIL: str = ""  # destination for operator notifications
+
     model_config = {"env_file": ".env"}
 
 

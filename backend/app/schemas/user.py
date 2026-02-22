@@ -54,3 +54,18 @@ class UserUpdate(BaseModel):
     display_name: str | None = Field(None, max_length=50)
     bio: str | None = Field(None, max_length=500)
     status: str | None = Field(None, max_length=100)
+
+
+class OperatorUserResponse(BaseModel):
+    """Extended user info exposed only to site admins via /api/operator/users."""
+
+    id: int
+    username: str
+    email: str
+    is_active: bool
+    is_site_admin: bool
+    can_create_server: bool
+    server_count: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -20,13 +20,16 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.api import auth, channels, dms, gifs, health, messages, push, search, uploads, users
+from app.api.invites import router as invites_router
+from app.api.operator import router as operator_router
 from app.api.presence import bulk_router
 from app.api.presence import router as presence_router
+from app.api.servers import router as servers_router
 from app.api.voice import router as voice_router
 from app.config import settings
 from app.database import configure_wal_for_replication, get_db
 from app.redis.client import close_redis, init_redis
-from app.websocket.handlers import channel_ws_handler, dm_ws_handler
+from app.websocket.handlers import dm_ws_handler, server_ws_handler
 from app.websocket.voice_handler import voice_ws_handler
 
 logging.basicConfig(
@@ -78,8 +81,11 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
-app.include_router(channels.router, prefix="/api")
+app.include_router(servers_router)  # already includes /api prefix in route paths
+app.include_router(channels.router)  # already includes /api prefix in route paths
 app.include_router(messages.router, prefix="/api")
+app.include_router(invites_router)  # already includes /api prefix in route paths
+app.include_router(operator_router)  # prefix="/api/operator" set on router
 app.include_router(uploads.router, prefix="/api")
 app.include_router(gifs.router, prefix="/api")
 app.include_router(dms.router, prefix="/api")
@@ -93,13 +99,18 @@ app.include_router(push.router, prefix="/api")
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # ---------------------------------------------------------------------------
-# WebSocket endpoint
+# WebSocket endpoints
 # ---------------------------------------------------------------------------
 
 
-@app.websocket("/ws/channels/{channel_id}")
-async def websocket_endpoint(websocket: WebSocket, channel_id: int, db: Session = Depends(get_db)) -> None:
-    await channel_ws_handler(websocket, channel_id, db)
+@app.websocket("/ws/server/{server_id}")
+async def server_websocket_endpoint(
+    websocket: WebSocket,
+    server_id: int,
+    db: Session = Depends(get_db),
+) -> None:
+    """Server-level WebSocket — handles text channel events, typing, and presence."""
+    await server_ws_handler(websocket, server_id, db)
 
 
 @app.websocket("/ws/dm/{dm_id}")
