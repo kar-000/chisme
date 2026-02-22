@@ -40,6 +40,11 @@ class Settings(BaseSettings):
         "text/plain",
     ]
 
+    # Web Push (VAPID) — generate with: npx web-push generate-vapid-keys
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_CLAIMS_EMAIL: str = "mailto:admin@localhost"
+
     model_config = {"env_file": ".env"}
 
 

@@ -1,9 +1,22 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: false,         // We manage manifest.json ourselves in public/
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
+      injectManifest: {
+        injectionPoint: undefined, // don't inject precache manifest into sw
+      },
+    }),
+  ],
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/__tests__/setup.js'],

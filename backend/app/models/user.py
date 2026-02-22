@@ -30,6 +30,11 @@ class User(Base):
     messages = relationship("Message", back_populates="user")
     channels_created = relationship("Channel", back_populates="creator")
     reactions = relationship("Reaction", back_populates="user")
+    push_subscriptions = relationship(
+        "PushSubscription",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def qualified_name(self) -> str:
