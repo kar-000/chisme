@@ -13,36 +13,34 @@ const useChatStore = create((set, get) => ({
   typingUsers: [],       // usernames currently typing
 
   // Pending attachments: [{ tempId, file, progress, id, url, error }]
-  // progress 0-100, id/url set after upload completes
   pendingAttachments: [],
 
   // Quote-reply: the message being replied to (or null)
   replyingTo: null,
 
-  // Unread counts: { [channelId]: number } — populated from API, cleared on select
+  // Unread counts: { [channelId]: number }
   unreadCounts: {},
 
   /* ── Channels ─────────────────────────────────────────────────── */
-  fetchChannels: async () => {
-    const { data } = await listChannels({ limit: 100 })
-    // Populate unread counts from the server response
+  fetchChannels: async (serverId) => {
+    if (!serverId) return
+    const { data } = await listChannels(serverId, { limit: 100 })
     const unreadCounts = {}
     data.forEach((c) => { unreadCounts[c.id] = c.unread_count ?? 0 })
-    set({ channels: data, unreadCounts })
-    if (!get().activeChannelId && data.length > 0) {
+    set({ channels: data, unreadCounts, activeChannelId: null })
+    if (data.length > 0) {
       const general = data.find((c) => c.name === 'general') ?? data[0]
-      get().selectChannel(general.id)
+      get().selectChannel(serverId, general.id)
     }
   },
 
-  createChannel: async (name, description) => {
-    const { data } = await createChannel(name, description)
+  createChannel: async (serverId, name, description) => {
+    const { data } = await createChannel(serverId, name, description)
     set((s) => ({ channels: [...s.channels, data] }))
-    get().selectChannel(data.id)
+    get().selectChannel(serverId, data.id)
   },
 
-  selectChannel: async (channelId) => {
-    // Clear unread badge immediately (optimistic)
+  selectChannel: async (serverId, channelId) => {
     set((s) => ({
       activeChannelId: channelId,
       messages: [],
@@ -52,35 +50,54 @@ const useChatStore = create((set, get) => ({
       replyingTo: null,
       unreadCounts: { ...s.unreadCounts, [channelId]: 0 },
     }))
-    get().fetchMessages(channelId)
-    // Persist read position on the server (fire-and-forget)
-    markChannelRead(channelId).catch(() => {})
+    get().fetchMessages(serverId, channelId)
+    markChannelRead(serverId, channelId).catch(() => {})
   },
 
   clearActiveChannel: () => {
-    set({ activeChannelId: null, messages: [], messagesTotal: 0, typingUsers: [], pendingAttachments: [], replyingTo: null })
+    set({
+      activeChannelId: null,
+      messages: [],
+      messagesTotal: 0,
+      typingUsers: [],
+      pendingAttachments: [],
+      replyingTo: null,
+    })
   },
 
   /* ── Messages ─────────────────────────────────────────────────── */
-  fetchMessages: async (channelId) => {
+  fetchMessages: async (serverId, channelId) => {
     set({ loadingMessages: true })
     try {
-      const { data } = await getMessages(channelId, { limit: 50 })
-      set({ messages: [...data.messages].reverse(), messagesTotal: data.total, loadingMessages: false })
+      const { data } = await getMessages(serverId, channelId, { limit: 50 })
+      set({
+        messages: [...data.messages].reverse(),
+        messagesTotal: data.total,
+        loadingMessages: false,
+      })
     } catch {
       set({ loadingMessages: false })
     }
   },
 
-  sendMessage: async (content, attachmentIds = []) => {
+  sendMessage: async (serverId, content, attachmentIds = []) => {
     const { activeChannelId, replyingTo } = get()
-    if (!activeChannelId) return
-    await sendMessage(activeChannelId, content, attachmentIds, replyingTo?.id ?? null)
+    if (!activeChannelId || !serverId) return
+    await sendMessage(serverId, activeChannelId, content, attachmentIds, replyingTo?.id ?? null)
     set({ replyingTo: null })
   },
 
   appendMessage: (msg) => {
     set((s) => {
+      if (s.messages.find((m) => m.id === msg.id)) return s
+      return { messages: [...s.messages, msg] }
+    })
+  },
+
+  // Only append if the message belongs to the currently-viewed channel
+  appendMessageForChannel: (channelId, msg) => {
+    set((s) => {
+      if (s.activeChannelId !== channelId) return s
       if (s.messages.find((m) => m.id === msg.id)) return s
       return { messages: [...s.messages, msg] }
     })
@@ -96,11 +113,23 @@ const useChatStore = create((set, get) => ({
     set((s) => ({ messages: s.messages.filter((m) => m.id !== id) }))
   },
 
+  incrementUnread: (channelId) => {
+    set((s) => ({
+      unreadCounts: {
+        ...s.unreadCounts,
+        [channelId]: (s.unreadCounts[channelId] ?? 0) + 1,
+      },
+    }))
+  },
+
   /* ── Pending attachments ──────────────────────────────────────── */
   addPendingAttachment: (file) => {
     const tempId = _nextTempId++
     set((s) => ({
-      pendingAttachments: [...s.pendingAttachments, { tempId, file, progress: 0, id: null, url: null, error: null }],
+      pendingAttachments: [
+        ...s.pendingAttachments,
+        { tempId, file, progress: 0, id: null, url: null, error: null },
+      ],
     }))
     return tempId
   },
@@ -137,8 +166,7 @@ const useChatStore = create((set, get) => ({
 
   clearPendingAttachments: () => set({ pendingAttachments: [] }),
 
-  /* ── Voice counts (per-channel, for sidebar indicator) ───────── */
-  // Absolute set — used when we receive a voice.state_snapshot
+  /* ── Voice counts ─────────────────────────────────────────────── */
   setChannelVoiceCount: (channelId, count) =>
     set((s) => ({
       channels: s.channels.map((c) =>
@@ -146,11 +174,12 @@ const useChatStore = create((set, get) => ({
       ),
     })),
 
-  // Delta update — used on voice.user_joined (+1) / voice.user_left (-1)
   adjustChannelVoiceCount: (channelId, delta) =>
     set((s) => ({
       channels: s.channels.map((c) =>
-        c.id === channelId ? { ...c, voice_count: Math.max(0, (c.voice_count ?? 0) + delta) } : c
+        c.id === channelId
+          ? { ...c, voice_count: Math.max(0, (c.voice_count ?? 0) + delta) }
+          : c
       ),
     })),
 
@@ -204,13 +233,9 @@ const useChatStore = create((set, get) => ({
       : set({ typingUsers: updater }),
 
   /* ── Voice ────────────────────────────────────────────────────── */
-  // voiceUsers: { [user_id]: { user_id, username, muted, video } }
   voiceUsers: {},
-  // pendingVoiceSignals: queue of { type, from_user_id, sdp?, candidate? }
   pendingVoiceSignals: [],
 
-  // Replace the entire voiceUsers map atomically — used on reconnect to
-  // discard any participants who left while the WS was down.
   setVoiceSnapshot: (users) => {
     const voiceUsers = {}
     users.forEach((u) => { voiceUsers[u.user_id] = { ...u } })
@@ -218,7 +243,9 @@ const useChatStore = create((set, get) => ({
   },
 
   setVoiceUser: (userId, data) =>
-    set((s) => ({ voiceUsers: { ...s.voiceUsers, [userId]: { ...s.voiceUsers[userId], ...data } } })),
+    set((s) => ({
+      voiceUsers: { ...s.voiceUsers, [userId]: { ...s.voiceUsers[userId], ...data } },
+    })),
 
   removeVoiceUser: (userId) =>
     set((s) => {

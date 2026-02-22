@@ -4,4 +4,7 @@ from app.models.dm_channel import DirectMessageChannel as DirectMessageChannel
 from app.models.message import Message as Message
 from app.models.reaction import Reaction as Reaction
 from app.models.read_receipt import ReadReceipt as ReadReceipt
+from app.models.server import Server as Server
+from app.models.server_invite import ServerInvite as ServerInvite
+from app.models.server_membership import ServerMembership as ServerMembership
 from app.models.user import User as User
