@@ -6,18 +6,23 @@ import AuthPage from './components/Auth/AuthPage'
 import Sidebar from './components/Layout/Sidebar'
 import MessageFeed from './components/Chat/MessageFeed'
 import DMView from './components/Chat/DMView'
+import VoiceControls from './components/Voice/VoiceControls'
 import MessageSearch from './components/Common/MessageSearch'
 import ShortcutsModal from './components/Common/ShortcutsModal'
 import ErrorBoundary from './components/Common/ErrorBoundary'
 import { useFaviconBadge } from './hooks/useFaviconBadge'
+import { useVoiceWebSocket } from './hooks/useVoiceWebSocket'
 
 function ChatLayout() {
   useFaviconBadge()
+  const { token, user } = useAuthStore()
   const fetchChannels = useChatStore((s) => s.fetchChannels)
   const activeDmId = useDMStore((s) => s.activeDmId)
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token)
 
   const handleNavigate = () => setSidebarOpen(false)
   const handleBack = () => setSidebarOpen(true)
@@ -54,6 +59,11 @@ function ChatLayout() {
           <ErrorBoundary>
             {activeDmId ? <DMView onBack={handleBack} /> : <MessageFeed onBack={handleBack} />}
           </ErrorBoundary>
+          <VoiceControls
+            currentUser={user}
+            sendMsg={sendVoiceMsg}
+            connected={voiceConnected}
+          />
         </div>
         {searchOpen && <MessageSearch onClose={() => setSearchOpen(false)} />}
         {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
