@@ -6,11 +6,16 @@ import { isMention, requestNotificationPermission, showNotification } from '../u
 const MAX_RECONNECT_ATTEMPTS = 10
 
 function getBackoffDelay(attempt) {
-  // Exponential backoff: 1s, 2s, 4s, 8s … capped at 30s
   return Math.min(1000 * Math.pow(2, attempt), 30000)
 }
 
-export function useWebSocket(channelId, token) {
+/**
+ * Opens a server-level WebSocket connection at /ws/server/{serverId}.
+ * A single connection per server carries all channel text events, typing
+ * indicators, presence, and voice signaling.  Each payload includes a
+ * channel_id field so the frontend can route it to the correct channel.
+ */
+export function useWebSocket(serverId, token) {
   const [connected, setConnected] = useState(false)
   const [reconnecting, setReconnecting] = useState(false)
   const [failoverDetected, setFailoverDetected] = useState(false)
@@ -23,7 +28,8 @@ export function useWebSocket(channelId, token) {
   const notifPermRequested = useRef(false)
 
   const me = useAuthStore((s) => s.user)
-  const appendMessage = useChatStore((s) => s.appendMessage)
+  const appendMessageForChannel = useChatStore((s) => s.appendMessageForChannel)
+  const incrementUnread = useChatStore((s) => s.incrementUnread)
   const updateMessage = useChatStore((s) => s.updateMessage)
   const removeMessage = useChatStore((s) => s.removeMessage)
   const setTypingUsers = useChatStore((s) => s.setTypingUsers)
@@ -35,9 +41,9 @@ export function useWebSocket(channelId, token) {
   const typingTimeouts = useRef({})
 
   const connect = useCallback(() => {
-    if (!channelId || !token) return
+    if (!serverId || !token) return
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const url = `${proto}://${window.location.host}/ws/channels/${channelId}`
+    const url = `${proto}://${window.location.host}/ws/server/${serverId}`
     const ws = new WebSocket(url)
     wsRef.current = ws
 
@@ -47,12 +53,10 @@ export function useWebSocket(channelId, token) {
       setConnected(true)
       setReconnecting(false)
       attemptsRef.current = 0
-      // Request notification permission once per session
       if (!notifPermRequested.current) {
         notifPermRequested.current = true
         requestNotificationPermission()
       }
-      // Keep "back online" banner for 5s then clear
       clearTimeout(failoverClearTimer.current)
       failoverClearTimer.current = setTimeout(() => {
         if (mountedRef.current) setFailoverDetected(false)
@@ -64,15 +68,21 @@ export function useWebSocket(channelId, token) {
       let data
       try { data = JSON.parse(ev.data) } catch { return }
 
+      const channelId = data.channel_id
+      const activeChannelId = useChatStore.getState().activeChannelId
+
       switch (data.type) {
         case 'message.new':
-          appendMessage(data.message)
-          // Notify on @mention when window isn't focused
+          if (channelId === activeChannelId) {
+            appendMessageForChannel(channelId, data.message)
+          } else {
+            incrementUnread(channelId)
+          }
           if (me && isMention(data.message?.content, me.username)) {
-            showNotification(`@${me.username} mentioned by ${data.message?.user?.username}`, {
-              body: data.message?.content,
-              tag: `mention-${data.message?.id}`,
-            })
+            showNotification(
+              `@${me.username} mentioned by ${data.message?.user?.username}`,
+              { body: data.message?.content, tag: `mention-${data.message?.id}` }
+            )
           }
           break
         case 'message.updated':
@@ -82,6 +92,7 @@ export function useWebSocket(channelId, token) {
           removeMessage(data.message_id)
           break
         case 'user.typing': {
+          if (channelId !== activeChannelId) break
           const { username } = data
           setTypingUsers((prev) => [...new Set([...prev, username])])
           clearTimeout(typingTimeouts.current[username])
@@ -90,12 +101,10 @@ export function useWebSocket(channelId, token) {
           }, 3000)
           break
         }
-        // Voice snapshot on connect: populate all current voice users at once
         case 'voice.state_snapshot':
           data.users.forEach((u) => setVoiceUser(u.user_id, u))
           setChannelVoiceCount(data.channel_id, data.users.length)
           break
-        // Voice broadcast events → update store
         case 'voice.user_joined':
           setVoiceUser(data.user_id, {
             user_id: data.user_id,
@@ -110,9 +119,12 @@ export function useWebSocket(channelId, token) {
           adjustChannelVoiceCount(data.channel_id, -1)
           break
         case 'voice.state_changed':
-          setVoiceUser(data.user_id, { muted: data.muted, video: data.video, speaking: data.speaking ?? false })
+          setVoiceUser(data.user_id, {
+            muted: data.muted,
+            video: data.video,
+            speaking: data.speaking ?? false,
+          })
           break
-        // Voice P2P signaling → queue for useVoiceChat to consume
         case 'voice.offer':
         case 'voice.answer':
         case 'voice.ice_candidate':
@@ -126,11 +138,9 @@ export function useWebSocket(channelId, token) {
     ws.onclose = (ev) => {
       if (!mountedRef.current) return
       setConnected(false)
-      // Abnormal closure or server going away may indicate failover
       if (ev?.code === 1006 || ev?.code === 1001) {
         setFailoverDetected(true)
       }
-      // Schedule reconnect with exponential backoff
       if (attemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         const delay = getBackoffDelay(attemptsRef.current)
         attemptsRef.current++
@@ -142,11 +152,25 @@ export function useWebSocket(channelId, token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [channelId, token, appendMessage, updateMessage, removeMessage, setTypingUsers, setVoiceUser, removeVoiceUser, pushVoiceSignal, setChannelVoiceCount, adjustChannelVoiceCount])
+  }, [
+    serverId,
+    token,
+    appendMessageForChannel,
+    incrementUnread,
+    updateMessage,
+    removeMessage,
+    setTypingUsers,
+    setVoiceUser,
+    removeVoiceUser,
+    pushVoiceSignal,
+    setChannelVoiceCount,
+    adjustChannelVoiceCount,
+  ])
 
-  const sendTyping = useCallback(() => {
+  // Send a typing indicator for the currently-active channel
+  const sendTyping = useCallback((channelId) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'user.typing' }))
+      wsRef.current.send(JSON.stringify({ type: 'user.typing', channel_id: channelId }))
     }
   }, [])
 

@@ -9,8 +9,8 @@
  */
 import twemoji from '@twemoji/api'
 
-// jsDelivr-hosted SVGs from the jdecked/twemoji fork (maintained successor to twitter/twemoji)
-const TWEMOJI_SVG_BASE = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@latest/assets/svg/'
+// jsDelivr-hosted SVGs — version pinned to match the installed @twemoji/api package
+const TWEMOJI_SVG_BASE = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/svg/'
 
 export default function TwemojiEmoji({ emoji, size = '1.2em', className = '' }) {
   const codepoint = twemoji.convert.toCodePoint(emoji)
