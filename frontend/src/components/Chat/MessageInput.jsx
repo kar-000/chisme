@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import useChatStore from '../../store/chatStore'
+import useServerStore from '../../store/serverStore'
 import { uploadFile } from '../../services/uploads'
 import { attachGif } from '../../services/gifs'
 import { getChannelMembers } from '../../services/channels'
@@ -22,6 +23,7 @@ function detectMention(text, cursorPos) {
 }
 
 export default function MessageInput({ onTyping }) {
+  const activeServerId = useServerStore((s) => s.activeServerId)
   const [content, setContent] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
@@ -225,7 +227,7 @@ export default function MessageInput({ onTyping }) {
     closeMention()
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     try {
-      await sendMessage(text, readyIds)
+      await sendMessage(activeServerId, text, readyIds)
     } catch (err) {
       console.error('Send failed', err)
     }

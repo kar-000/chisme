@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useChatStore from '../../store/chatStore'
 import useDMStore from '../../store/dmStore'
+import useServerStore from '../../store/serverStore'
 import Modal from '../Common/Modal'
 import Input from '../Common/Input'
 import Button from '../Common/Button'
@@ -8,6 +9,7 @@ import Button from '../Common/Button'
 export default function ChannelList({ onNavigate }) {
   const { channels, activeChannelId, unreadCounts, selectChannel, createChannel } = useChatStore()
   const closeDM = useDMStore((s) => s.closeDM)
+  const activeServerId = useServerStore((s) => s.activeServerId)
   const [showModal, setShowModal] = useState(false)
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
@@ -19,7 +21,7 @@ export default function ChannelList({ onNavigate }) {
     setCreating(true)
     setError('')
     try {
-      await createChannel(name.toLowerCase(), desc)
+      await createChannel(activeServerId, name.toLowerCase(), desc)
       setShowModal(false)
       setName('')
       setDesc('')
@@ -51,7 +53,7 @@ export default function ChannelList({ onNavigate }) {
             return (
               <li key={ch.id}>
                 <button
-                  onClick={() => { closeDM(); selectChannel(ch.id); onNavigate?.() }}
+                  onClick={() => { closeDM(); selectChannel(activeServerId, ch.id); onNavigate?.() }}
                   className={`
                     w-full text-left px-4 py-2 text-sm flex items-center gap-1
                     border-l-2 transition-all duration-150

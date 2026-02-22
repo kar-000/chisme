@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { searchMessages } from '../../services/search'
 import useChatStore from '../../store/chatStore'
 import useDMStore from '../../store/dmStore'
+import useServerStore from '../../store/serverStore'
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -24,6 +25,7 @@ export default function MessageSearch({ onClose }) {
   const channels = useChatStore((s) => s.channels)
   const { selectChannel } = useChatStore()
   const closeDM = useDMStore((s) => s.closeDM)
+  const activeServerId = useServerStore((s) => s.activeServerId)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -62,7 +64,7 @@ export default function MessageSearch({ onClose }) {
 
   const handleSelect = (result) => {
     closeDM()
-    selectChannel(result.channel_id)
+    selectChannel(activeServerId, result.channel_id)
     onClose()
   }
 
