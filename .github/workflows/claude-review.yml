@@ -11,11 +11,7 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # Only run on PRs or when @claude is mentioned in a comment
-    if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    if: false
     permissions:
       contents: read
       pull-requests: write

@@ -76,6 +76,10 @@ async def server_ws_handler(websocket: WebSocket, server_id: int, db: Session) -
         await _ws_close(websocket, code=4003)
         return
 
+    if membership.server.is_suspended:
+        await _ws_close(websocket, code=4003)
+        return
+
     await manager.connect(websocket, server_id, user.id)
     await presence_mgr.set_online(user.id)
 

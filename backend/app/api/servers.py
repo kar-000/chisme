@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -23,6 +25,14 @@ from app.services.notifications import notify_server_created
 router = APIRouter()
 
 
+class UpdateRoleBody(BaseModel):
+    role: str
+
+
+class TransferOwnerBody(BaseModel):
+    new_owner_id: int
+
+
 @router.get("/api/servers", response_model=list[ServerResponse])
 async def list_my_servers(
     current_user: User = Depends(get_current_user),
@@ -35,10 +45,21 @@ async def list_my_servers(
 
     servers = db.query(Server).filter(Server.id.in_(server_ids)).all()
 
+    counts = (
+        dict(
+            db.query(ServerMembership.server_id, func.count(ServerMembership.id))
+            .filter(ServerMembership.server_id.in_(server_ids))
+            .group_by(ServerMembership.server_id)
+            .all()
+        )
+        if server_ids
+        else {}
+    )
+
     result = []
     for server in servers:
         data = ServerResponse.model_validate(server)
-        data.member_count = len(server.memberships)
+        data.member_count = counts.get(server.id, 0)
         data.current_user_role = role_by_server.get(server.id)
         result.append(data)
     return result
@@ -47,6 +68,7 @@ async def list_my_servers(
 @router.post("/api/servers", response_model=ServerResponse, status_code=201)
 async def create_server(
     data: ServerCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_can_create_server),
     db: Session = Depends(get_db),
 ):
@@ -74,7 +96,8 @@ async def create_server(
     db.commit()
     db.refresh(server)
 
-    notify_server_created(
+    background_tasks.add_task(
+        notify_server_created,
         server_name=server.name,
         server_slug=server.slug,
         owner_username=current_user.username,
@@ -94,8 +117,9 @@ async def get_server(
 ):
     """Get server details. Membership required."""
     server = db.query(Server).filter(Server.id == server_id).first()
+    member_count = db.query(func.count(ServerMembership.id)).filter(ServerMembership.server_id == server_id).scalar()
     response = ServerResponse.model_validate(server)
-    response.member_count = len(server.memberships)
+    response.member_count = member_count
     response.current_user_role = membership.role
     return response
 
@@ -122,8 +146,9 @@ async def update_server(
     db.commit()
     db.refresh(server)
 
+    member_count = db.query(func.count(ServerMembership.id)).filter(ServerMembership.server_id == server_id).scalar()
     response = ServerResponse.model_validate(server)
-    response.member_count = len(server.memberships)
+    response.member_count = member_count
     response.current_user_role = membership.role
     return response
 
@@ -191,22 +216,16 @@ async def remove_member(
     db.commit()
 
 
-class RoleUpdate(ServerUpdate):
-    role: str
-
-
 @router.patch("/api/servers/{server_id}/members/{target_user_id}/role")
 async def update_member_role(
     server_id: int,
     target_user_id: int,
-    body: dict,
+    body: UpdateRoleBody,
     membership: ServerMembership = Depends(require_server_owner),
     db: Session = Depends(get_db),
 ):
     """Promote or demote a member. Owner only. Cannot change the owner's own role here."""
-
-    new_role = body.get("role")
-    if new_role not in (ROLE_ADMIN, ROLE_MEMBER):
+    if body.role not in (ROLE_ADMIN, ROLE_MEMBER):
         raise HTTPException(
             status_code=422,
             detail="Role must be one of: admin, member",
@@ -228,15 +247,15 @@ async def update_member_role(
             detail="Use /transfer-ownership to change the owner's role",
         )
 
-    target.role = new_role
+    target.role = body.role
     db.commit()
-    return {"user_id": target_user_id, "role": new_role}
+    return {"user_id": target_user_id, "role": body.role}
 
 
 @router.post("/api/servers/{server_id}/transfer-ownership")
 async def transfer_ownership(
     server_id: int,
-    body: dict,
+    body: TransferOwnerBody,
     membership: ServerMembership = Depends(require_server_owner),
     db: Session = Depends(get_db),
 ):
@@ -245,18 +264,14 @@ async def transfer_ownership(
     The current owner is demoted to admin. Immediate and irreversible
     without a subsequent transfer.
     """
-    new_owner_id = body.get("new_owner_id")
-    if not new_owner_id:
-        raise HTTPException(status_code=422, detail="new_owner_id is required")
-
-    if new_owner_id == membership.user_id:
+    if body.new_owner_id == membership.user_id:
         raise HTTPException(status_code=400, detail="You are already the owner")
 
     new_owner_membership = (
         db.query(ServerMembership)
         .filter(
             ServerMembership.server_id == server_id,
-            ServerMembership.user_id == new_owner_id,
+            ServerMembership.user_id == body.new_owner_id,
         )
         .first()
     )
@@ -267,13 +282,13 @@ async def transfer_ownership(
         )
 
     server = db.query(Server).filter(Server.id == server_id).first()
-    server.owner_id = new_owner_id
+    server.owner_id = body.new_owner_id
     membership.role = ROLE_ADMIN
     new_owner_membership.role = ROLE_OWNER
 
     db.commit()
     return {
         "status": "transferred",
-        "new_owner_id": new_owner_id,
+        "new_owner_id": body.new_owner_id,
         "previous_owner_id": membership.user_id,
     }

@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_server_admin
@@ -12,9 +14,17 @@ from app.models.user import User
 router = APIRouter()
 
 
-def _get_valid_invite(code: str, db: Session) -> ServerInvite:
+class InviteCreate(BaseModel):
+    max_uses: int | None = Field(None, ge=1)
+    expires_in_hours: int | None = Field(None, ge=1)
+
+
+def _get_valid_invite(code: str, db: Session, *, for_update: bool = False) -> ServerInvite:
     """Shared validation: raises 404 or 410 for missing/expired/revoked invites."""
-    invite = db.query(ServerInvite).filter(ServerInvite.code == code).first()
+    query = db.query(ServerInvite).filter(ServerInvite.code == code)
+    if for_update:
+        query = query.with_for_update()
+    invite = query.first()
     if not invite:
         raise HTTPException(status_code=404, detail="Invite not found")
     if not invite.is_active:
@@ -22,7 +32,7 @@ def _get_valid_invite(code: str, db: Session) -> ServerInvite:
             status_code=410,
             detail="This invite has been revoked",
         )
-    if invite.expires_at and invite.expires_at < datetime.utcnow():
+    if invite.expires_at and invite.expires_at < datetime.now(timezone.utc):
         invite.is_active = False
         db.commit()
         raise HTTPException(status_code=410, detail="This invite has expired")
@@ -37,7 +47,7 @@ def _get_valid_invite(code: str, db: Session) -> ServerInvite:
 @router.post("/api/servers/{server_id}/invites", status_code=201)
 async def create_invite(
     server_id: int,
-    body: dict,
+    body: InviteCreate,
     membership: ServerMembership = Depends(require_server_admin),
     db: Session = Depends(get_db),
 ):
@@ -45,18 +55,15 @@ async def create_invite(
     Generate an invite code for this server. Admin or owner only.
     Optional body fields: max_uses (int), expires_in_hours (int).
     """
-    max_uses: int | None = body.get("max_uses")
-    expires_in_hours: int | None = body.get("expires_in_hours")
-
     expires_at = None
-    if expires_in_hours:
-        expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
+    if body.expires_in_hours:
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=body.expires_in_hours)
 
     invite = ServerInvite(
         server_id=server_id,
         created_by=membership.user_id,
         code=ServerInvite.generate_code(),
-        max_uses=max_uses,
+        max_uses=body.max_uses,
         expires_at=expires_at,
     )
     db.add(invite)
@@ -78,11 +85,14 @@ async def preview_invite(code: str, db: Session = Depends(get_db)):
     Returns server name and member count so the user knows what they're joining.
     """
     invite = _get_valid_invite(code, db)
+    member_count = (
+        db.query(func.count(ServerMembership.id)).filter(ServerMembership.server_id == invite.server_id).scalar()
+    )
     return {
         "server_name": invite.server.name,
         "server_description": invite.server.description,
         "server_icon_url": invite.server.icon_url,
-        "member_count": len(invite.server.memberships),
+        "member_count": member_count,
     }
 
 
@@ -95,8 +105,9 @@ async def redeem_invite(
     """
     Redeem an invite code. Adds the current user as a member of the server.
     Idempotent — redeeming an invite you've already used returns success silently.
+    Uses SELECT FOR UPDATE to prevent concurrent over-redemption.
     """
-    invite = _get_valid_invite(code, db)
+    invite = _get_valid_invite(code, db, for_update=True)
 
     # Already a member — return success without duplicating the row
     existing = (

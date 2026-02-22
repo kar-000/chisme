@@ -37,14 +37,14 @@ def voice_channel_key(channel_id: int) -> str:
 
 
 def typing_key(server_id: int, channel_id: int) -> str:
-    return f"server:{server_id}:typing:{channel_id}"
+    return f"{settings.SERVER_DOMAIN}:server:{server_id}:typing:{channel_id}"
 
 
 # ── Pub/sub channels (server + channel scoped) ────────────────────────────────
 
 
 def channel_pubsub_key(server_id: int, channel_id: int) -> str:
-    return f"server:{server_id}:channel:{channel_id}"
+    return f"{settings.SERVER_DOMAIN}:server:{server_id}:channel:{channel_id}"
 
 
 # ── DMs (not server-scoped) ──────────────────────────────────────────────────
