@@ -15,12 +15,7 @@ export function OperatorDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Belt-and-suspenders frontend gate — the backend also enforces this
-  if (user && !user.is_site_admin) {
-    window.history.replaceState({}, '', '/')
-    return null
-  }
-
+  // All hooks must come before any conditional return (Rules of Hooks)
   useEffect(() => {
     Promise.all([
       api.get('/operator/servers'),
@@ -33,6 +28,12 @@ export function OperatorDashboard() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  // Belt-and-suspenders frontend gate — the backend also enforces this
+  if (user && !user.is_site_admin) {
+    window.history.replaceState({}, '', '/')
+    return null
+  }
 
   if (loading) return <div className="operator-loading">Loading…</div>
   if (error) return <div className="operator-error">{error}</div>

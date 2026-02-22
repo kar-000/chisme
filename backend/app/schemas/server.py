@@ -26,6 +26,13 @@ class ServerUpdate(BaseModel):
     icon_url: str | None = Field(None, max_length=500)
     is_public: bool | None = None
 
+    @field_validator("icon_url")
+    @classmethod
+    def validate_icon_url(cls, v: str | None) -> str | None:
+        if v is not None and not v.startswith(("http://", "https://")):
+            raise ValueError("icon_url must be an http(s) URL")
+        return v
+
 
 class ServerResponse(BaseModel):
     id: int
