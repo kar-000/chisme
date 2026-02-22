@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ChannelList from '../Chat/ChannelList'
 import DMList from '../Chat/DMList'
+import NewDMModal from '../Common/NewDMModal'
 import ProfileModal from '../Common/ProfileModal'
 import StatusIndicator from '../Common/StatusIndicator'
 import useAuthStore from '../../store/authStore'
@@ -21,6 +22,7 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
   const { user, logout } = useAuthStore()
   const { fetchDMs, selectDM } = useDMStore()
   const clearActiveChannel = useChatStore((s) => s.clearActiveChannel)
+  const [showNewDM, setShowNewDM] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
 
   useEffect(() => {
@@ -66,9 +68,19 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
 
         {/* DM section */}
         <div className="mt-4">
-          <p className="px-4 pb-1 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">
-            direct messages
-          </p>
+          <div className="px-4 pb-1 flex items-center justify-between">
+            <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">
+              direct messages
+            </span>
+            <button
+              onClick={() => setShowNewDM(true)}
+              title="New direct message"
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] leading-none
+                         transition-colors text-sm font-mono"
+            >
+              +
+            </button>
+          </div>
           <DMList onSelect={handleSelectDM} />
         </div>
       </div>
@@ -100,6 +112,9 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
         </button>
       </div>
 
+      {showNewDM && (
+        <NewDMModal onClose={() => setShowNewDM(false)} onNavigate={onNavigate} />
+      )}
       {showProfile && user && (
         <ProfileModal userId={user.id} onClose={() => setShowProfile(false)} />
       )}
