@@ -2,6 +2,8 @@ import { useState } from 'react'
 import useChatStore from '../../store/chatStore'
 import useDMStore from '../../store/dmStore'
 import useServerStore from '../../store/serverStore'
+import { useInviteModal } from '../../hooks/useInviteModal'
+import { ServerSettingsModal } from '../Server/ServerSettingsModal'
 import Modal from '../Common/Modal'
 import Input from '../Common/Input'
 import Button from '../Common/Button'
@@ -10,6 +12,13 @@ export default function ChannelList({ onNavigate }) {
   const { channels, activeChannelId, unreadCounts, selectChannel, createChannel } = useChatStore()
   const closeDM = useDMStore((s) => s.closeDM)
   const activeServerId = useServerStore((s) => s.activeServerId)
+  const servers = useServerStore((s) => s.servers)
+  const server = servers.find((s) => s.id === activeServerId)
+  const canInvite =
+    server?.current_user_role === 'owner' || server?.current_user_role === 'admin'
+
+  const invite = useInviteModal()
+  const [showSettings, setShowSettings] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
@@ -35,15 +44,44 @@ export default function ChannelList({ onNavigate }) {
   return (
     <>
       <div className="flex flex-col h-full">
+        {/* Server name header with invite / settings buttons */}
+        <div className="sidebar-server-header">
+          <span className="sidebar-server-name">{server?.name ?? '…'}</span>
+          {canInvite && (
+            <div className="flex items-center gap-1">
+              <button
+                className="sidebar-invite-btn"
+                onClick={invite.open}
+                title="Invite People"
+                type="button"
+              >
+                +👤
+              </button>
+              <button
+                className="sidebar-settings-btn"
+                onClick={() => setShowSettings(true)}
+                title="Server Settings"
+                type="button"
+              >
+                ⚙
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Channel list header row */}
         <div className="px-3 py-2 flex items-center justify-between">
           <span className="text-xs text-[var(--text-muted)] uppercase tracking-widest">Channels</span>
-          <button
-            onClick={() => setShowModal(true)}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg leading-none transition-colors"
-            title="New channel"
-          >
-            +
-          </button>
+          {canInvite && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg leading-none transition-colors"
+              title="New channel"
+              type="button"
+            >
+              +
+            </button>
+          )}
         </div>
 
         <ul className="flex-1 overflow-y-auto">
@@ -84,6 +122,8 @@ export default function ChannelList({ onNavigate }) {
           })}
         </ul>
       </div>
+
+      {showSettings && <ServerSettingsModal onClose={() => setShowSettings(false)} />}
 
       {showModal && (
         <Modal
