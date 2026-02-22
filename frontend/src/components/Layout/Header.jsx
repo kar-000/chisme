@@ -7,7 +7,7 @@ export default function Header({ onBack }) {
   if (!channel) return null
 
   return (
-    <header className="px-6 py-4 border-b border-[var(--border)] bg-black/20 flex items-center gap-3 flex-shrink-0">
+    <header className="sticky top-0 z-10 px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-primary)] flex items-center gap-3 flex-shrink-0">
       <button
         onClick={onBack}
         className="md:hidden text-[var(--text-muted)] hover:text-[var(--text-primary)] text-lg transition-colors flex-shrink-0"
