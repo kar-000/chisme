@@ -15,7 +15,7 @@ import pytest
 
 import app.redis.voice as voice_mod
 from app.redis.keys import voice_channel_key, voice_user_key
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 # ---------------------------------------------------------------------------
 # Fake async Redis helpers
@@ -280,13 +280,14 @@ def test_get_voice_channel_not_found(client):
 
 def test_get_voice_channel_empty(client, patch_redis):
     headers = auth_headers(client, username="voiceuser2", email="voice2@example.com")
-    # Create a channel first
+    # Create a channel using the server-scoped route
+    sid = get_server_id(client, headers)
     ch_resp = client.post(
-        "/api/channels/",
+        f"/api/servers/{sid}/channels",
         json={"name": "voice-test", "description": ""},
         headers=headers,
     )
-    assert ch_resp.status_code in (200, 201)
+    assert ch_resp.status_code == 201
     channel_id = ch_resp.json()["id"]
 
     resp = client.get(f"/api/channels/{channel_id}/voice", headers=headers)
@@ -298,12 +299,13 @@ def test_get_voice_channel_empty(client, patch_redis):
 
 def test_get_voice_channel_with_users(client, patch_redis):
     headers = auth_headers(client, username="voiceuser3", email="voice3@example.com")
+    sid = get_server_id(client, headers)
     ch_resp = client.post(
-        "/api/channels/",
+        f"/api/servers/{sid}/channels",
         json={"name": "voice-test-2", "description": ""},
         headers=headers,
     )
-    assert ch_resp.status_code in (200, 201)
+    assert ch_resp.status_code == 201
     channel_id = ch_resp.json()["id"]
 
     # Seed fake Redis directly

@@ -73,3 +73,12 @@ def auth_headers(client: TestClient, username="testuser", email="test@example.co
     assert resp.status_code == 200, f"Registration failed: {resp.json()}"
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+def get_server_id(client: TestClient, headers: dict) -> int:
+    """Return the ID of the first (main) server the authenticated user belongs to."""
+    resp = client.get("/api/servers", headers=headers)
+    assert resp.status_code == 200, f"Failed to get servers: {resp.json()}"
+    servers = resp.json()
+    assert len(servers) > 0, "User belongs to no servers"
+    return servers[0]["id"]

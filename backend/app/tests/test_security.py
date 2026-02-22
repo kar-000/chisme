@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 
 def make_second_user(client):
@@ -12,11 +12,13 @@ def make_second_user(client):
 class TestAuthorizationBoundaries:
     def test_edit_others_message_forbidden(self, client: TestClient):
         headers1 = auth_headers(client)
-        channel_resp = client.post("/api/channels", json={"name": "sec-room"}, headers=headers1)
+        sid = get_server_id(client, headers1)
+        channel_resp = client.post(f"/api/servers/{sid}/channels", json={"name": "sec-room"}, headers=headers1)
+        assert channel_resp.status_code == 201
         channel_id = channel_resp.json()["id"]
 
         msg_resp = client.post(
-            f"/api/channels/{channel_id}/messages",
+            f"/api/servers/{sid}/channels/{channel_id}/messages",
             json={"content": "owner's message"},
             headers=headers1,
         )
@@ -28,11 +30,13 @@ class TestAuthorizationBoundaries:
 
     def test_delete_others_message_forbidden(self, client: TestClient):
         headers1 = auth_headers(client)
-        channel_resp = client.post("/api/channels", json={"name": "sec-room2"}, headers=headers1)
+        sid = get_server_id(client, headers1)
+        channel_resp = client.post(f"/api/servers/{sid}/channels", json={"name": "sec-room2"}, headers=headers1)
+        assert channel_resp.status_code == 201
         channel_id = channel_resp.json()["id"]
 
         msg_resp = client.post(
-            f"/api/channels/{channel_id}/messages",
+            f"/api/servers/{sid}/channels/{channel_id}/messages",
             json={"content": "owner's message"},
             headers=headers1,
         )

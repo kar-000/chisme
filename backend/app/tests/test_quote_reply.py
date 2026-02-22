@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 
 @pytest.fixture()
@@ -12,16 +12,23 @@ def headers(client):
 
 
 @pytest.fixture()
-def channel(client, headers):
-    resp = client.post("/api/channels", json={"name": "reply-room"}, headers=headers)
-    assert resp.status_code == 200
-    return resp.json()
+def server_id(client, headers):
+    return get_server_id(client, headers)
+
+
+@pytest.fixture()
+def channel(client, headers, server_id):
+    resp = client.post(f"/api/servers/{server_id}/channels", json={"name": "reply-room"}, headers=headers)
+    assert resp.status_code == 201
+    data = resp.json()
+    data["server_id"] = server_id
+    return data
 
 
 @pytest.fixture()
 def message(client, headers, channel):
     resp = client.post(
-        f"/api/channels/{channel['id']}/messages",
+        f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
         json={"content": "Original message"},
         headers=headers,
     )
@@ -32,7 +39,7 @@ def message(client, headers, channel):
 class TestQuoteReply:
     def test_reply_to_message_success(self, client: TestClient, headers, channel, message):
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "This is a reply", "reply_to_id": message["id"]},
             headers=headers,
         )
@@ -45,7 +52,7 @@ class TestQuoteReply:
 
     def test_reply_includes_author_info(self, client: TestClient, headers, channel, message):
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "Reply with author info", "reply_to_id": message["id"]},
             headers=headers,
         )
@@ -55,19 +62,25 @@ class TestQuoteReply:
 
     def test_reply_to_nonexistent_message_fails(self, client: TestClient, headers, channel):
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "Orphan reply", "reply_to_id": 99999},
             headers=headers,
         )
         assert resp.status_code == 404
 
-    def test_reply_to_message_in_other_channel_fails(self, client: TestClient, headers, message):
-        # Create a different channel
-        other_channel = client.post("/api/channels", json={"name": "other-room"}, headers=headers).json()
+    def test_reply_to_message_in_other_channel_fails(self, client: TestClient, headers, channel, message):
+        # Create a different channel in the same server
+        other_resp = client.post(
+            f"/api/servers/{channel['server_id']}/channels",
+            json={"name": "other-room"},
+            headers=headers,
+        )
+        assert other_resp.status_code == 201
+        other_channel_id = other_resp.json()["id"]
 
         # Try to reply to a message from the first channel, posted in the second channel
         resp = client.post(
-            f"/api/channels/{other_channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{other_channel_id}/messages",
             json={"content": "Cross-channel reply attempt", "reply_to_id": message["id"]},
             headers=headers,
         )
@@ -80,7 +93,7 @@ class TestQuoteReply:
 
         # Try to reply to it
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "Reply to deleted", "reply_to_id": message["id"]},
             headers=headers,
         )
@@ -88,11 +101,14 @@ class TestQuoteReply:
 
     def test_reply_appears_in_message_list(self, client: TestClient, headers, channel, message):
         client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "Reply in list", "reply_to_id": message["id"]},
             headers=headers,
         )
-        resp = client.get(f"/api/channels/{channel['id']}/messages", headers=headers)
+        resp = client.get(
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
+            headers=headers,
+        )
         assert resp.status_code == 200
         messages = resp.json()["messages"]
         replies = [m for m in messages if m["reply_to_id"] == message["id"]]
@@ -101,7 +117,7 @@ class TestQuoteReply:
 
     def test_message_without_reply_to_has_null_fields(self, client: TestClient, headers, channel):
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
             json={"content": "Plain message"},
             headers=headers,
         )

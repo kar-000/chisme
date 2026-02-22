@@ -5,7 +5,7 @@ Tests for:
   - PATCH /api/users/me       (profile update: display_name, bio, status)
 """
 
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -13,14 +13,17 @@ from app.tests.conftest import auth_headers
 
 
 def _make_channel(client, headers, name="testchan"):
-    r = client.post("/api/channels", json={"name": name}, headers=headers)
-    assert r.status_code == 200
-    return r.json()["id"]
+    sid = get_server_id(client, headers)
+    r = client.post(f"/api/servers/{sid}/channels", json={"name": name}, headers=headers)
+    assert r.status_code == 201
+    data = r.json()
+    data["server_id"] = sid
+    return data
 
 
-def _post_message(client, headers, channel_id, content):
+def _post_message(client, headers, channel, content):
     r = client.post(
-        f"/api/channels/{channel_id}/messages",
+        f"/api/servers/{channel['server_id']}/channels/{channel['id']}/messages",
         json={"content": content},
         headers=headers,
     )
@@ -66,11 +69,11 @@ class TestMessageSearch:
         _post_message(client, hdrs, ch1, "needle in channel 1")
         _post_message(client, hdrs, ch2, "needle in channel 2")
 
-        r = client.get(f"/api/search/messages?q=needle&channel_id={ch1}", headers=hdrs)
+        r = client.get(f"/api/search/messages?q=needle&channel_id={ch1['id']}", headers=hdrs)
         assert r.status_code == 200
         data = r.json()
         assert data["total"] == 1
-        assert data["results"][0]["channel_id"] == ch1
+        assert data["results"][0]["channel_id"] == ch1["id"]
 
     def test_search_no_results(self, client):
         hdrs = auth_headers(client)

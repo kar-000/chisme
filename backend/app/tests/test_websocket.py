@@ -1,4 +1,4 @@
-"""Tests for WebSocket channel and DM endpoints.
+"""Tests for WebSocket server and DM endpoints.
 
 Covers the accept-then-authenticate flow introduced to fix the
 Starlette 0.41 requirement that websocket.accept() must be called
@@ -8,7 +8,7 @@ before receive_text().
 import pytest
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import register_user
+from app.tests.conftest import get_server_id, register_user
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -21,12 +21,6 @@ def _register(client: TestClient, username: str, email: str, password: str = "Pa
     return resp.json()  # {"access_token": ..., "user": {...}}
 
 
-def _make_channel(client: TestClient, headers: dict, name: str = "ws-room") -> int:
-    resp = client.post("/api/channels", json={"name": name}, headers=headers)
-    assert resp.status_code == 200
-    return resp.json()["id"]
-
-
 def _make_dm(client: TestClient, token: str, other_user_id: int) -> int:
     headers = {"Authorization": f"Bearer {token}"}
     resp = client.post(f"/api/dms?other_user_id={other_user_id}", headers=headers)
@@ -35,18 +29,19 @@ def _make_dm(client: TestClient, token: str, other_user_id: int) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Channel WebSocket
+# Server WebSocket
 # ---------------------------------------------------------------------------
 
 
-class TestChannelWebSocket:
+class TestServerWebSocket:
     def test_connect_and_auth_succeeds(self, client: TestClient):
         """WebSocket upgrades (101) and accepts a valid auth message."""
         data = _register(client, "wsuser", "ws@example.com")
         token = data["access_token"]
-        channel_id = _make_channel(client, {"Authorization": f"Bearer {token}"})
+        headers = {"Authorization": f"Bearer {token}"}
+        server_id = get_server_id(client, headers)
 
-        with client.websocket_connect(f"/ws/channels/{channel_id}") as ws:
+        with client.websocket_connect(f"/ws/server/{server_id}") as ws:
             ws.send_json({"type": "auth", "token": token})
             event = ws.receive_json()
             assert event["type"] == "user.joined"
@@ -55,10 +50,11 @@ class TestChannelWebSocket:
         """WebSocket closes with 1008 when an invalid token is sent."""
         data = _register(client, "wsreject", "wsreject@example.com")
         token = data["access_token"]
-        channel_id = _make_channel(client, {"Authorization": f"Bearer {token}"})
+        headers = {"Authorization": f"Bearer {token}"}
+        server_id = get_server_id(client, headers)
 
         with pytest.raises(Exception):
-            with client.websocket_connect(f"/ws/channels/{channel_id}") as ws:
+            with client.websocket_connect(f"/ws/server/{server_id}") as ws:
                 ws.send_json({"type": "auth", "token": "not-a-real-token"})
                 ws.receive_json()  # server closes → raises
 
@@ -66,33 +62,34 @@ class TestChannelWebSocket:
         """WebSocket closes with 1008 when first message is not type=auth."""
         data = _register(client, "wswrong", "wswrong@example.com")
         token = data["access_token"]
-        channel_id = _make_channel(client, {"Authorization": f"Bearer {token}"})
+        headers = {"Authorization": f"Bearer {token}"}
+        server_id = get_server_id(client, headers)
 
         with pytest.raises(Exception):
-            with client.websocket_connect(f"/ws/channels/{channel_id}") as ws:
+            with client.websocket_connect(f"/ws/server/{server_id}") as ws:
                 ws.send_json({"type": "hello", "token": token})
                 ws.receive_json()
 
     def test_typing_event_broadcast(self, client: TestClient):
-        """user.typing sent by one client is broadcast to others on the channel."""
+        """user.typing sent by one client is broadcast to others on the server."""
         data1 = _register(client, "typer1", "typer1@example.com")
         data2 = _register(client, "typer2", "typer2@example.com")
         token1, token2 = data1["access_token"], data2["access_token"]
-        channel_id = _make_channel(client, {"Authorization": f"Bearer {token1}"}, name="typing-room")
+        server_id = get_server_id(client, {"Authorization": f"Bearer {token1}"})
 
-        with client.websocket_connect(f"/ws/channels/{channel_id}") as ws1:
+        with client.websocket_connect(f"/ws/server/{server_id}") as ws1:
             ws1.send_json({"type": "auth", "token": token1})
             ws1.receive_json()  # ws1's user.joined
             ws1.receive_json()  # ws1's presence.changed (online)
 
-            with client.websocket_connect(f"/ws/channels/{channel_id}") as ws2:
+            with client.websocket_connect(f"/ws/server/{server_id}") as ws2:
                 ws2.send_json({"type": "auth", "token": token2})
                 ws1.receive_json()  # ws1 sees ws2 user.joined
                 ws1.receive_json()  # ws1 sees ws2 presence.changed (online)
                 ws2.receive_json()  # ws2's own user.joined
                 ws2.receive_json()  # ws2's own presence.changed (online)
 
-                ws2.send_json({"type": "user.typing"})
+                ws2.send_json({"type": "user.typing", "channel_id": 1})
 
                 event = ws1.receive_json()
                 assert event["type"] == "user.typing"

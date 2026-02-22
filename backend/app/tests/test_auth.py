@@ -2,7 +2,7 @@
 
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers, register_user
+from app.tests.conftest import auth_headers, get_server_id, register_user
 
 
 class TestRegister:
@@ -44,7 +44,9 @@ class TestRegister:
     def test_register_creates_general_channel(self, client: TestClient):
         reg = register_user(client)
         token = reg.json()["access_token"]
-        channels_resp = client.get("/api/channels", headers={"Authorization": f"Bearer {token}"})
+        headers = {"Authorization": f"Bearer {token}"}
+        server_id = get_server_id(client, headers)
+        channels_resp = client.get(f"/api/servers/{server_id}/channels", headers=headers)
         names = [c["name"] for c in channels_resp.json()]
         assert "general" in names
 

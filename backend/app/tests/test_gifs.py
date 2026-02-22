@@ -3,7 +3,7 @@
 import httpx
 from fastapi.testclient import TestClient
 
-from app.tests.conftest import auth_headers
+from app.tests.conftest import auth_headers, get_server_id
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -198,7 +198,14 @@ class TestGifAttach:
         headers = auth_headers(client)
 
         # Create channel
-        channel = client.post("/api/channels", json={"name": "gif-room"}, headers=headers).json()
+        sid = get_server_id(client, headers)
+        channel_resp = client.post(
+            f"/api/servers/{sid}/channels",
+            json={"name": "gif-room"},
+            headers=headers,
+        )
+        assert channel_resp.status_code == 201
+        channel = channel_resp.json()
 
         # Attach GIF
         gif_url = "https://media.tenor.com/sendable.gif"
@@ -210,7 +217,7 @@ class TestGifAttach:
 
         # Send message with GIF attachment
         resp = client.post(
-            f"/api/channels/{channel['id']}/messages",
+            f"/api/servers/{sid}/channels/{channel['id']}/messages",
             json={"content": "", "attachment_ids": [att["id"]]},
             headers=headers,
         )
