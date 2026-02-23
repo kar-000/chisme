@@ -276,3 +276,50 @@ class TestServerMembers:
             headers=h_owner,
         )
         assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Icon upload
+# ---------------------------------------------------------------------------
+
+
+class TestServerIconUpload:
+    def test_upload_icon_sets_icon_url(self, client: TestClient, db):
+        headers = auth_headers(client, username="iconown", email="iconown@example.com")
+        server = _create_server(client, headers, db, "iconown", slug="iconsrv")
+        png_1px = (
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00"
+            b"\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        resp = client.post(
+            f"/api/servers/{server['id']}/icon",
+            headers=headers,
+            files={"file": ("icon.png", png_1px, "image/png")},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["icon_url"].startswith("/uploads/")
+        assert data["id"] == server["id"]
+
+    def test_upload_icon_non_member_forbidden(self, client: TestClient, db):
+        h_owner = auth_headers(client, username="iconown2", email="iconown2@example.com")
+        h_other = auth_headers(client, username="iconoth", email="iconoth@example.com")
+        server = _create_server(client, h_owner, db, "iconown2", slug="iconsrv2")
+        png_1px = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82"
+        resp = client.post(
+            f"/api/servers/{server['id']}/icon",
+            headers=h_other,
+            files={"file": ("icon.png", png_1px, "image/png")},
+        )
+        assert resp.status_code in (403, 404)
+
+    def test_upload_icon_wrong_mime_type_rejected(self, client: TestClient, db):
+        headers = auth_headers(client, username="iconmime", email="iconmime@example.com")
+        server = _create_server(client, headers, db, "iconmime", slug="iconmimesrv")
+        resp = client.post(
+            f"/api/servers/{server['id']}/icon",
+            headers=headers,
+            files={"file": ("doc.pdf", b"%PDF-1.4", "application/pdf")},
+        )
+        assert resp.status_code == 415
