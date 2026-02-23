@@ -213,7 +213,7 @@ export default function Message({ message }) {
     <>
     <div
       className={`
-        group flex gap-3 px-3 py-2 rounded transition-all duration-150 msg-appear
+        group relative flex gap-3 px-3 py-2 rounded transition-all duration-150 msg-appear
         ${isOwn ? 'bg-[rgba(255,182,193,0.06)]' : 'hover:bg-[rgba(0,206,209,0.04)]'}
       `}
       onMouseEnter={() => setShowActions(true)}
@@ -291,9 +291,10 @@ export default function Message({ message }) {
         <ReactionBar reactions={message.reactions} messageId={message.id} />
       </div>
 
-      {/* Hover actions */}
+      {/* Hover actions — absolutely positioned so they overlay without reflowing text */}
       {showActions && !editing && (
-        <div className="relative flex items-start gap-1 flex-shrink-0">
+        <div className="absolute top-1 right-2 flex items-center gap-1 z-10
+                        bg-[var(--bg-primary)] border border-[var(--border)] rounded shadow-md px-1 py-0.5">
           {/* Quick-react presets */}
           {['👍', '❤️', '😂', '🎉'].map((e) => (
             <button

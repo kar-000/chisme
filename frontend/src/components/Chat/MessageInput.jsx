@@ -9,6 +9,7 @@ import GifPicker from './GifPicker'
 import EmojiPicker from './EmojiPicker'
 
 const TYPING_THROTTLE = 2000
+const MAX_CHARS = 2000
 
 const ACCEPTED = 'image/*,video/mp4,video/webm,application/pdf,application/zip,text/plain'
 
@@ -28,6 +29,7 @@ export default function MessageInput({ onTyping }) {
   const [dragOver, setDragOver] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [sendError, setSendError] = useState('')
 
   // Mention autocomplete state
   const [mention, setMention] = useState(null) // { query, triggerStart } | null
@@ -217,19 +219,22 @@ export default function MessageInput({ onTyping }) {
   const readyIds = pendingAttachments
     .filter((a) => a.progress === 100 && !a.error && a.id)
     .map((a) => a.id)
-  const canSubmit = !isUploading && (content.trim().length > 0 || readyIds.length > 0)
+  const overLimit = content.length > MAX_CHARS
+  const canSubmit = !isUploading && !overLimit && (content.trim().length > 0 || readyIds.length > 0)
 
   const submit = async () => {
     if (!canSubmit || !activeChannelId) return
     const text = content.trim()
     setContent('')
+    setSendError('')
     clearPendingAttachments()
     closeMention()
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     try {
       await sendMessage(activeServerId, text, readyIds)
     } catch (err) {
-      console.error('Send failed', err)
+      const msg = err?.response?.data?.detail ?? 'Failed to send message'
+      setSendError(typeof msg === 'string' ? msg : JSON.stringify(msg))
     }
   }
 
@@ -265,6 +270,13 @@ export default function MessageInput({ onTyping }) {
           attachments={pendingAttachments}
           onRemove={removePendingAttachment}
         />
+      )}
+
+      {/* Send error */}
+      {sendError && (
+        <div className="px-4 pt-1 text-xs font-mono text-[var(--text-error)]" data-testid="send-error">
+          &gt; {sendError}
+        </div>
       )}
 
       <div className="px-4 py-3 flex gap-2 items-end relative">
@@ -389,6 +401,16 @@ export default function MessageInput({ onTyping }) {
             leading-relaxed
           "
         />
+
+        {/* Character counter — only shown within 200 chars of the limit */}
+        {content.length > MAX_CHARS - 200 && (
+          <span
+            className={`text-xs font-mono flex-shrink-0 self-center ${overLimit ? 'text-[var(--text-error)]' : 'text-[var(--text-muted)]'}`}
+            data-testid="char-counter"
+          >
+            {MAX_CHARS - content.length}
+          </span>
+        )}
 
         <button
           onClick={submit}
