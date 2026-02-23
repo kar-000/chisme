@@ -53,6 +53,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-tags: true   # needed so git describe resolves the version tag
 
       - name: Set up Node 20
         uses: actions/setup-node@v4
