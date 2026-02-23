@@ -30,6 +30,7 @@ export default function MessageInput({ onTyping }) {
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [sendError, setSendError] = useState('')
+  const [showFmtHints, setShowFmtHints] = useState(false)
 
   // Mention autocomplete state
   const [mention, setMention] = useState(null) // { query, triggerStart } | null
@@ -381,6 +382,30 @@ export default function MessageInput({ onTyping }) {
         >
           😊
         </button>
+
+        {/* Formatting hints button */}
+        <div className="relative flex-shrink-0">
+          <button
+            onMouseEnter={() => setShowFmtHints(true)}
+            onMouseLeave={() => setShowFmtHints(false)}
+            className="
+              h-9 w-9 flex items-center justify-center rounded
+              border border-[var(--border)] text-[var(--text-muted)]
+              hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+              transition-all duration-200 font-mono text-xs font-bold
+            "
+            title="Formatting help"
+            type="button"
+            data-testid="fmt-hints-button"
+          >
+            ?
+          </button>
+          {showFmtHints && (
+            <div className="fmt-hints" data-testid="fmt-hints-popover">
+              {`**bold**   *italic*   ~~strike~~   \`code\`\n\`\`\`lang  code block  \`\`\`   > quote`}
+            </div>
+          )}
+        </div>
 
         <textarea
           ref={textareaRef}

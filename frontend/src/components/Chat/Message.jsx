@@ -5,40 +5,7 @@ import ProfileModal from '../Common/ProfileModal'
 import { getUserByUsername } from '../../services/users'
 import EmojiPicker from './EmojiPicker'
 import TwemojiEmoji from '../Common/TwemojiEmoji'
-
-/**
- * Render message content with clickable, highlighted @mentions.
- * Mentions matching the current user get an orange highlight.
- */
-function MessageContent({ content, currentUsername, isOwn, onMentionClick }) {
-  const parts = content.split(/(@\w+)/g)
-  return (
-    <span>
-      {parts.map((part, i) => {
-        if (!part.startsWith('@')) return part
-        const name = part.slice(1)
-        const isAll = name.toLowerCase() === 'all'
-        const isMe = !isAll && name.toLowerCase() === currentUsername?.toLowerCase()
-        const highlight = isAll || isMe
-        return (
-          <button
-            key={i}
-            onClick={() => !isAll && onMentionClick(name)}
-            className={`font-bold font-mono transition-colors
-              ${highlight
-                ? 'text-[var(--crt-orange,#FF8C42)] bg-[rgba(255,140,66,0.15)] px-0.5 rounded hover:bg-[rgba(255,140,66,0.25)]'
-                : isOwn
-                  ? 'text-[var(--text-own)] hover:underline'
-                  : 'text-[var(--text-lt)] hover:underline'
-              }`}
-          >
-            {part}
-          </button>
-        )
-      })}
-    </span>
-  )
-}
+import { MessageContent } from './MessageContent'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -270,9 +237,7 @@ export default function Message({ message }) {
             <button type="button" onClick={() => setEditing(false)} className="text-xs text-[var(--text-muted)] px-2">cancel</button>
           </form>
         ) : (
-          <p
-            className={`text-sm leading-relaxed break-words whitespace-pre-wrap ${isOwn ? 'text-[var(--text-own)] glow-pink' : 'text-[var(--text-primary)] glow-teal'}`}
-          >
+          <div className={isOwn ? 'glow-pink' : 'glow-teal'}>
             <MessageContent
               content={message.content}
               currentUsername={user?.username}
@@ -284,7 +249,7 @@ export default function Message({ message }) {
                 } catch { /* user not found — ignore */ }
               }}
             />
-          </p>
+          </div>
         )}
 
         <Attachments attachments={message.attachments} />
