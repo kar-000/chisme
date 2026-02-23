@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from app.api.deps import (
     require_server_member,
     require_server_owner,
 )
+from app.config import settings
 from app.database import get_db
 from app.models.server import Server
 from app.models.server_membership import (
@@ -21,6 +22,7 @@ from app.models.server_membership import (
 from app.models.user import User
 from app.schemas.server import ServerCreate, ServerMembershipResponse, ServerResponse, ServerUpdate
 from app.services.notifications import notify_server_created
+from app.storage import save_upload
 
 router = APIRouter()
 
@@ -143,6 +145,41 @@ async def update_server(
     if data.is_public is not None:
         server.is_public = data.is_public
 
+    db.commit()
+    db.refresh(server)
+
+    member_count = db.query(func.count(ServerMembership.id)).filter(ServerMembership.server_id == server_id).scalar()
+    response = ServerResponse.model_validate(server)
+    response.member_count = member_count
+    response.current_user_role = membership.role
+    return response
+
+
+@router.post("/api/servers/{server_id}/icon", response_model=ServerResponse)
+async def upload_server_icon(
+    server_id: int,
+    file: UploadFile,
+    membership: ServerMembership = Depends(require_server_admin),
+    db: Session = Depends(get_db),
+):
+    """Upload a new icon image for the server. Admin or owner only."""
+    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Icon must be a JPEG, PNG, GIF, or WebP image",
+        )
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Icon must be under 5 MB",
+        )
+
+    stored_filename, _ = save_upload(content, file.filename, settings.UPLOAD_DIR)
+    server = db.query(Server).filter(Server.id == server_id).first()
+    server.icon_url = f"/uploads/{stored_filename}"
     db.commit()
     db.refresh(server)
 

@@ -6,6 +6,14 @@ export const getServer = (serverId) => api.get(`/servers/${serverId}`)
 export const updateServer = (serverId, data) => api.patch(`/servers/${serverId}`, data)
 export const deleteServer = (serverId) => api.delete(`/servers/${serverId}`)
 
+export const uploadServerIcon = (serverId, file) => {
+  const form = new FormData()
+  form.append('file', file)
+  return api.post(`/servers/${serverId}/icon`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
 export const listMembers = (serverId) => api.get(`/servers/${serverId}/members`)
 export const removeMember = (serverId, userId) =>
   api.delete(`/servers/${serverId}/members/${userId}`)
