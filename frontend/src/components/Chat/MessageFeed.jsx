@@ -10,7 +10,7 @@ import TypingIndicator from './TypingIndicator'
 import Header from '../Layout/Header'
 import FailoverBanner from '../Common/FailoverBanner'
 
-export default function MessageFeed({ onBack }) {
+export default function MessageFeed({ onBack, onBookmarksOpen }) {
   const { messages, loadingMessages, activeChannelId } = useChatStore()
   const { token } = useAuthStore()
   const activeServerId = useServerStore((s) => s.activeServerId)
@@ -34,7 +34,7 @@ export default function MessageFeed({ onBack }) {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <FailoverBanner reconnecting={reconnecting} failoverDetected={failoverDetected} />
-      <Header onBack={onBack} />
+      <Header onBack={onBack} onBookmarksOpen={onBookmarksOpen} />
 
       {/* Messages scroll area */}
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-0.5 min-h-0">

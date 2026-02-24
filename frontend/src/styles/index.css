@@ -1020,3 +1020,121 @@ em-emoji-picker {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Side panel (shared shell for Bookmarks, Reminders, etc.) ───────── */
+.side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 340px;
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+}
+
+.side-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.side-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+/* ── Bookmark item cards ─────────────────────────────────────────────── */
+.bookmark-item {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.15s;
+}
+
+.bookmark-item:hover {
+  border-color: var(--accent-teal);
+}
+
+.bookmark-context {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.bookmark-context .channel-ref {
+  color: var(--accent-teal);
+}
+
+.bookmark-preview {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.35rem;
+}
+
+.bookmark-note {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 0.5rem;
+}
+
+.bookmark-note-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.5rem;
+  resize: none;
+  height: 60px;
+}
+
+.bookmark-note-input:focus {
+  border-color: var(--accent-teal);
+  box-shadow: var(--glow-sm);
+  outline: none;
+}
+
+.bookmark-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.bookmark-actions button {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bookmark-actions button:hover {
+  border-color: var(--accent-teal);
+  color: var(--accent-teal);
+}

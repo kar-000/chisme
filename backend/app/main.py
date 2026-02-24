@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.api import auth, channels, dms, gifs, health, messages, push, search, uploads, users
+from app.api.bookmarks import router as bookmarks_router
 from app.api.invites import router as invites_router
 from app.api.operator import router as operator_router
 from app.api.presence import bulk_router
@@ -94,6 +95,7 @@ app.include_router(bulk_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
+app.include_router(bookmarks_router)  # prefix="/api/bookmarks" set on router
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
