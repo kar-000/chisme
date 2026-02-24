@@ -1,4 +1,5 @@
 from app.models.attachment import Attachment as Attachment
+from app.models.bookmark import Bookmark as Bookmark
 from app.models.channel import Channel as Channel
 from app.models.dm_channel import DirectMessageChannel as DirectMessageChannel
 from app.models.message import Message as Message

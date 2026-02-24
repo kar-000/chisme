@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
+import useBookmarkStore from '../../store/bookmarkStore'
 import ProfileModal from '../Common/ProfileModal'
 import { getUserByUsername } from '../../services/users'
 import EmojiPicker from './EmojiPicker'
@@ -154,6 +155,7 @@ function ReactionBar({ reactions = [], messageId }) {
 export default function Message({ message }) {
   const { user } = useAuthStore()
   const { editMessage, deleteMessage, addReaction, setReplyingTo } = useChatStore()
+  const { bookmarkedMessageIds, addBookmark, removeBookmarkByMessageId } = useBookmarkStore()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
@@ -163,6 +165,15 @@ export default function Message({ message }) {
   const reactionButtonRef = useRef(null)
 
   const isOwn = message.user_id === user?.id
+  const isBookmarked = bookmarkedMessageIds.has(message.id)
+
+  const handleToggleBookmark = async () => {
+    if (isBookmarked) {
+      await removeBookmarkByMessageId(message.id)
+    } else {
+      await addBookmark(message.id)
+    }
+  }
 
   const handleEdit = async (e) => {
     e.preventDefault()
@@ -302,6 +313,15 @@ export default function Message({ message }) {
               positionClass={reactionPickerClass}
             />
           )}
+
+          <button
+            onClick={handleToggleBookmark}
+            className={`text-xs transition-colors px-1 ${isBookmarked ? 'text-[var(--accent-teal)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-teal)]'}`}
+            title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+            data-testid="bookmark-button"
+          >
+            🔖
+          </button>
 
           <button
             onClick={() => setReplyingTo(message)}

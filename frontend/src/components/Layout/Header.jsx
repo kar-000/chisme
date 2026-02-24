@@ -1,6 +1,6 @@
 import useChatStore from '../../store/chatStore'
 
-export default function Header({ onBack }) {
+export default function Header({ onBack, onBookmarksOpen }) {
   const { channels, activeChannelId } = useChatStore()
   const channel = channels.find((c) => c.id === activeChannelId)
 
@@ -15,7 +15,7 @@ export default function Header({ onBack }) {
       >
         ←
       </button>
-      <div>
+      <div className="flex-1 min-w-0">
         <h2 className="text-lg font-medium text-[var(--text-primary)] glow-teal">
           <span className="text-[var(--text-muted)]"># </span>{channel.name}
         </h2>
@@ -23,6 +23,15 @@ export default function Header({ onBack }) {
           <p className="text-xs text-[var(--text-muted)] mt-0.5">{channel.description}</p>
         )}
       </div>
+      {onBookmarksOpen && (
+        <button
+          onClick={onBookmarksOpen}
+          className="text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors flex-shrink-0 text-lg"
+          title="Bookmarks"
+        >
+          🔖
+        </button>
+      )}
     </header>
   )
 }
