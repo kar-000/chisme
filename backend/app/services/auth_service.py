@@ -9,6 +9,7 @@ tokens are accepted; the remote branch is a comment marking where federation
 would hook in.
 """
 
+import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -85,3 +86,41 @@ def get_user_from_token(token: str, db: Session) -> User | None:
     # Future: federated user from another server
     # return federated_user_service.resolve(payload, db)
     return None
+
+
+# ── Refresh Token ──────────────────────────────────────────────────────────────
+
+
+def create_refresh_token(user: User, db: Session) -> str:
+    """Issue a new opaque refresh token, persist it, and return the raw value."""
+    from app.models.refresh_token import RefreshToken
+
+    raw = secrets.token_hex(64)  # 128 hex chars, 256 bits of entropy
+    expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    db.add(RefreshToken(user_id=user.id, token=raw, expires_at=expires))
+    db.commit()
+    return raw
+
+
+def validate_refresh_token(token: str, db: Session) -> User | None:
+    """Return the active user for a valid refresh token, or None."""
+    from app.models.refresh_token import RefreshToken
+
+    rt = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.token == token, RefreshToken.revoked == False)  # noqa: E712
+        .first()
+    )
+    if rt is None or rt.expires_at < datetime.now(timezone.utc):
+        return None
+    return db.query(User).filter(User.id == rt.user_id, User.is_active == True).first()  # noqa: E712
+
+
+def revoke_refresh_token(token: str, db: Session) -> None:
+    """Mark a refresh token as revoked."""
+    from app.models.refresh_token import RefreshToken
+
+    rt = db.query(RefreshToken).filter(RefreshToken.token == token).first()
+    if rt:
+        rt.revoked = True
+        db.commit()
