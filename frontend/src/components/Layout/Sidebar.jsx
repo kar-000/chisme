@@ -7,6 +7,7 @@ import StatusIndicator from '../Common/StatusIndicator'
 import useAuthStore from '../../store/authStore'
 import useDMStore from '../../store/dmStore'
 import useChatStore from '../../store/chatStore'
+import useServerStore from '../../store/serverStore'
 
 function Avatar({ username, avatarUrl }) {
   if (avatarUrl) {
@@ -31,6 +32,7 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
   const { user, logout } = useAuthStore()
   const { fetchDMs, selectDM } = useDMStore()
   const clearActiveChannel = useChatStore((s) => s.clearActiveChannel)
+  const activeServer = useServerStore((s) => s.servers.find((sv) => sv.id === s.activeServerId))
   const [showNewDM, setShowNewDM] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
 
@@ -72,8 +74,8 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
       {/* Channel list */}
       <div className="flex-1 min-h-0 py-2 overflow-y-auto flex flex-col">
         <div>
-          <p className="px-4 pb-1 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">
-            channels
+          <p className="px-4 pb-1 text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest truncate">
+            {activeServer?.name ?? 'channels'}
           </p>
           <ChannelList onNavigate={onNavigate} />
         </div>

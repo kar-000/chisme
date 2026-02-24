@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { listServers } from '../services/servers'
+import { listServers, deleteServer, updateMemberRole, removeMember, transferOwnership } from '../services/servers'
 
 // Lazy imports to avoid circular dependency at module load time.
 // chatStore and useWebSocket are imported inside actions that need them.
@@ -55,6 +55,24 @@ const useServerStore = create((set, get) => ({
             : s.activeServerId,
       }
     }),
+
+  deleteServer: async (serverId) => {
+    await deleteServer(serverId)
+    get().removeServer(serverId)
+    const remaining = get().servers
+    if (remaining.length > 0 && !get().activeServerId) {
+      get().setActiveServer(remaining[0].id)
+    }
+  },
+
+  updateMemberRole: (serverId, userId, role) => updateMemberRole(serverId, userId, role),
+
+  removeMember: (serverId, userId) => removeMember(serverId, userId),
+
+  transferOwnership: async (serverId, newOwnerId) => {
+    const { data } = await transferOwnership(serverId, newOwnerId)
+    get().updateServer(data)
+  },
 }))
 
 export default useServerStore
