@@ -1372,3 +1372,51 @@ em-emoji-picker {
   min-width: 100px;
   flex: 1;
 }
+
+/* ── Search Filters ─────────────────────────────────────────────────────── */
+
+.search-filter-input {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0.3rem 0.5rem;
+  width: 130px;
+}
+
+.search-filter-input:focus {
+  border-color: var(--accent-teal);
+  outline: none;
+}
+
+input[type="date"].search-filter-input {
+  color-scheme: dark;
+}
+
+.search-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(0, 206, 209, 0.1);
+  border: 1px solid var(--accent-teal);
+  border-radius: 12px;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  color: var(--accent-teal);
+}
+
+.search-filter-chip button {
+  background: none;
+  border: none;
+  color: var(--accent-teal);
+  cursor: pointer;
+  font-size: 10px;
+  opacity: 0.7;
+  padding: 0;
+  line-height: 1;
+}
+
+.search-filter-chip button:hover { opacity: 1; }
