@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.attachment import Attachment
 from app.models.channel import Channel
 from app.models.message import Message
+from app.models.poll import Poll, PollOption, PollVote
 from app.models.read_receipt import ReadReceipt
 from app.models.server_membership import ServerMembership
 from app.models.user import User
@@ -286,8 +287,55 @@ async def get_channel_messages(
     total = query.count()
     messages = query.order_by(Message.created_at.desc()).offset(offset).limit(limit).all()
 
+    # Batch-fetch poll data for any poll messages
+    message_ids = [m.id for m in messages]
+    polls_by_message_id: dict[int, Poll] = {}
+    user_voted_by_poll: dict[int, list[int]] = {}
+    if message_ids:
+        polls = db.query(Poll).filter(Poll.message_id.in_(message_ids)).all()
+        if polls:
+            polls_by_message_id = {p.message_id: p for p in polls}
+            poll_ids = [p.id for p in polls]
+            vote_rows = (
+                db.query(PollVote.option_id, PollOption.poll_id)
+                .join(PollOption, PollOption.id == PollVote.option_id)
+                .filter(PollOption.poll_id.in_(poll_ids), PollVote.user_id == membership.user_id)
+                .all()
+            )
+            for option_id, poll_id in vote_rows:
+                user_voted_by_poll.setdefault(poll_id, []).append(option_id)
+
+    def _build_poll_resp(poll: Poll, voted_ids: list[int]):
+        from app.schemas.poll import PollOptionResponse, PollResponse
+
+        total_v = sum(len(o.votes) for o in poll.options)
+        opts = []
+        for opt in poll.options:
+            v = len(opt.votes)
+            pct = round(v / total_v * 100, 1) if total_v > 0 else 0.0
+            opts.append(PollOptionResponse(id=opt.id, text=opt.text, order=opt.order, votes=v, percentage=pct))
+        return PollResponse(
+            id=poll.id,
+            message_id=poll.message_id,
+            question=poll.question,
+            multi_choice=poll.multi_choice,
+            closes_at=poll.closes_at,
+            created_by=poll.created_by,
+            total_votes=total_v,
+            options=opts,
+            user_voted_option_ids=voted_ids,
+        )
+
+    msg_responses = []
+    for m in messages:
+        resp = MessageResponse.model_validate(m)
+        if m.id in polls_by_message_id:
+            poll = polls_by_message_id[m.id]
+            resp.poll = _build_poll_resp(poll, user_voted_by_poll.get(poll.id, []))
+        msg_responses.append(resp)
+
     return MessageList(
-        messages=[MessageResponse.model_validate(m) for m in messages],
+        messages=msg_responses,
         total=total,
         limit=limit,
         offset=offset,

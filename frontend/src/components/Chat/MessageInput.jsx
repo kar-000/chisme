@@ -7,6 +7,7 @@ import { getChannelMembers } from '../../services/channels'
 import AttachmentPreview from './AttachmentPreview'
 import GifPicker from './GifPicker'
 import EmojiPicker from './EmojiPicker'
+import CreatePollModal from '../Modals/CreatePollModal'
 
 const TYPING_THROTTLE = 2000
 const MAX_CHARS = 2000
@@ -29,6 +30,7 @@ export default function MessageInput({ onTyping }) {
   const [dragOver, setDragOver] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showPollModal, setShowPollModal] = useState(false)
   const [sendError, setSendError] = useState('')
   const [showFmtHints, setShowFmtHints] = useState(false)
 
@@ -365,6 +367,22 @@ export default function MessageInput({ onTyping }) {
           GIF
         </button>
 
+        {/* Poll button */}
+        <button
+          onClick={() => setShowPollModal(true)}
+          className="
+            h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+            border border-[var(--border)] text-[var(--text-muted)]
+            hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+            hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
+            transition-all duration-200 text-base
+          "
+          title="Create poll"
+          data-testid="poll-button"
+        >
+          📊
+        </button>
+
         {/* Emoji button — onMouseDown prevents focus theft so cursor position is preserved */}
         <button
           ref={emojiButtonRef}
@@ -454,5 +472,7 @@ export default function MessageInput({ onTyping }) {
         </button>
       </div>
     </div>
+
+    {showPollModal && <CreatePollModal onClose={() => setShowPollModal(false)} />}
   )
 }

@@ -33,6 +33,7 @@ export function useWebSocket(serverId, token) {
   const incrementUnread = useChatStore((s) => s.incrementUnread)
   const updateMessage = useChatStore((s) => s.updateMessage)
   const removeMessage = useChatStore((s) => s.removeMessage)
+  const updatePollInMessage = useChatStore((s) => s.updatePollInMessage)
   const setTypingUsers = useChatStore((s) => s.setTypingUsers)
   const setVoiceUser = useChatStore((s) => s.setVoiceUser)
   const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
@@ -96,6 +97,12 @@ export function useWebSocket(serverId, token) {
           break
         case 'message.deleted':
           removeMessage(data.message_id)
+          break
+        case 'poll_updated':
+          updatePollInMessage(data.message_id, {
+            options: data.options,
+            total_votes: data.total_votes,
+          })
           break
         case 'user.typing': {
           if (channelId !== activeChannelId) break
@@ -165,6 +172,7 @@ export function useWebSocket(serverId, token) {
     incrementUnread,
     updateMessage,
     removeMessage,
+    updatePollInMessage,
     setTypingUsers,
     setVoiceUser,
     removeVoiceUser,
