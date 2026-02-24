@@ -45,6 +45,7 @@ class GifAttachRequest(BaseModel):
 def _tenor_fetch(path: str, params: dict) -> dict:
     """Call the Tenor v2 API and return the parsed JSON response."""
     params["key"] = settings.TENOR_API_KEY
+    params["client_key"] = "chisme"  # required by Tenor v2 API
     params["media_filter"] = "tinygif,nanogif"
     url = f"{settings.TENOR_API_BASE}/{path}"
     try:
