@@ -123,7 +123,7 @@ em-emoji-picker {
 /* ── Server list column ───────────────────────────────────────────────────── */
 
 .server-list {
-  width: 64px;
+  width: 80px;
   min-height: 100vh;
   background: var(--bg-secondary);
   display: flex;
@@ -136,21 +136,21 @@ em-emoji-picker {
 }
 
 .server-list__divider {
-  width: 32px;
+  width: 48px;
   height: 1px;
   background: var(--border);
   margin: 0.25rem 0;
 }
 
 .server-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  width: 72px;
+  height: 72px;
+  border-radius: 22%;
   border: 2px solid transparent;
   background: rgba(0, 206, 209, 0.08);
   color: var(--text-primary);
   font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-  font-size: 0.75rem;
+  font-size: 1.1rem;
   cursor: pointer;
   transition: border-color 0.15s, border-radius 0.15s;
   overflow: hidden;
@@ -167,7 +167,7 @@ em-emoji-picker {
 
 .server-icon--active {
   border-color: var(--accent-teal);
-  border-radius: 30%;
+  border-radius: 28%;
 }
 
 .server-icon img {
@@ -180,7 +180,7 @@ em-emoji-picker {
   color: var(--accent-teal);
   font-weight: bold;
   letter-spacing: 0.05em;
-  font-size: 0.8rem;
+  font-size: 1.2rem;
   pointer-events: none;
 }
 
@@ -199,7 +199,7 @@ em-emoji-picker {
 /* Dropdown menu for Add Server button */
 .server-add-menu {
   position: absolute;
-  left: 72px;
+  left: 88px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 4px;

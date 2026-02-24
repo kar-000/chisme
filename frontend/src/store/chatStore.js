@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { listChannels, createChannel, getMessages, sendMessage, markChannelRead } from '../services/channels'
+import { listChannels, createChannel, deleteChannel, getMessages, sendMessage, markChannelRead } from '../services/channels'
 import { addReaction, removeReaction, editMessage, deleteMessage } from '../services/messages'
 
 let _nextTempId = 1
@@ -38,6 +38,24 @@ const useChatStore = create((set, get) => ({
     const { data } = await createChannel(serverId, name, description)
     set((s) => ({ channels: [...s.channels, data] }))
     get().selectChannel(serverId, data.id)
+  },
+
+  deleteChannel: async (serverId, channelId) => {
+    await deleteChannel(serverId, channelId)
+    set((s) => {
+      const channels = s.channels.filter((c) => c.id !== channelId)
+      // If the deleted channel was active, switch to another
+      if (s.activeChannelId === channelId) {
+        const next = channels[0]
+        return { channels, activeChannelId: next?.id ?? null, messages: [], messagesTotal: 0 }
+      }
+      return { channels }
+    })
+    // Fetch messages for newly-active channel if needed
+    const { activeChannelId, channels } = get()
+    if (activeChannelId) {
+      get().fetchMessages(serverId, activeChannelId)
+    }
   },
 
   selectChannel: async (serverId, channelId) => {
