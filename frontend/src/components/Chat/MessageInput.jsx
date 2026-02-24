@@ -242,6 +242,7 @@ export default function MessageInput({ onTyping }) {
   }
 
   return (
+    <>
     <div
       className={`border-t border-[var(--border)] bg-black/20 flex-shrink-0 transition-colors duration-150 ${dragOver ? 'bg-[var(--accent-teal)]/10' : ''}`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -474,5 +475,6 @@ export default function MessageInput({ onTyping }) {
     </div>
 
     {showPollModal && <CreatePollModal onClose={() => setShowPollModal(false)} />}
+    </>
   )
 }
