@@ -21,8 +21,11 @@ class Settings(BaseSettings):
     # Each independent Chisme deployment should have a unique value.
     SERVER_DOMAIN: str = "localhost"
 
-    # Tenor GIF API (v2) — set in .env (console.cloud.google.com → enable Tenor API → create key)
-    TENOR_API_KEY: str = ""
+    # Tenor GIF API (v2).
+    # Default is the publicly-documented non-commercial demo key.
+    # Override with your own key via TENOR_API_KEY in .env.
+    # Leave blank to disable GIF search entirely.
+    TENOR_API_KEY: str = "AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk"
     TENOR_API_BASE: str = "https://tenor.googleapis.com/v2"
     TENOR_SEARCH_LIMIT: int = 20
 

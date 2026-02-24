@@ -98,6 +98,8 @@ def search_gifs(
     current_user: User = Depends(get_current_user),
 ) -> list[GifResult]:
     """Search Tenor for GIFs (or return featured GIFs when query is empty)."""
+    if not settings.TENOR_API_KEY:
+        return []
     limit = min(limit, settings.TENOR_SEARCH_LIMIT)
     if q.strip():
         data = _tenor_fetch("search", {"q": q.strip(), "limit": limit})
