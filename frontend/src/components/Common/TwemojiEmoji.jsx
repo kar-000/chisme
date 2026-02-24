@@ -16,6 +16,15 @@ export default function TwemojiEmoji({ emoji, size = '1.2em', className = '' }) 
   const codepoint = twemoji.convert.toCodePoint(emoji)
   const src = `${TWEMOJI_SVG_BASE}${codepoint}.svg`
 
+  // Some emojis (e.g. ❤️) get a codepoint with a `-fe0f` variation selector
+  // that Twemoji CDN files don't include. Fall back to the base codepoint.
+  const handleError = (e) => {
+    const current = e.currentTarget.src
+    if (current.includes('-fe0f')) {
+      e.currentTarget.src = current.replace(/-fe0f/g, '')
+    }
+  }
+
   return (
     <img
       src={src}
@@ -28,6 +37,7 @@ export default function TwemojiEmoji({ emoji, size = '1.2em', className = '' }) 
         verticalAlign: '-0.15em',
       }}
       draggable={false}
+      onError={handleError}
     />
   )
 }

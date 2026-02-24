@@ -35,7 +35,11 @@ export default function ChannelList({ onNavigate }) {
       setName('')
       setDesc('')
     } catch (err) {
-      setError(err.response?.data?.detail ?? 'Failed to create channel')
+      const detail = err.response?.data?.detail
+      const msg = Array.isArray(detail)
+        ? detail.map((d) => d.msg).join(', ')
+        : (detail ?? 'Failed to create channel')
+      setError(msg)
     } finally {
       setCreating(false)
     }
