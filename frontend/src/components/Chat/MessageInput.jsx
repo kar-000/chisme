@@ -422,7 +422,7 @@ export default function MessageInput({ onTyping }) {
             placeholder:text-[var(--text-muted)]
             focus:outline-none focus:border-[var(--border-glow)]
             focus:shadow-[0_0_12px_rgba(0,206,209,0.3)]
-            resize-none transition-all duration-200
+            resize-none overflow-y-hidden transition-colors duration-200
             leading-relaxed
           "
         />

@@ -513,6 +513,15 @@ em-emoji-picker {
   background: var(--bg-hover);
 }
 
+/* Larger touch targets on touchscreen devices */
+@media (pointer: coarse) {
+  .sidebar-invite-btn,
+  .sidebar-settings-btn {
+    padding: 0.55rem 0.65rem;
+    font-size: 0.95rem;
+  }
+}
+
 /* ── Server context menu ──────────────────────────────────────────────────── */
 
 .server-context-menu {

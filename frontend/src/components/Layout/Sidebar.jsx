@@ -45,7 +45,7 @@ export default function Sidebar({ onSearchOpen, onNavigate, mobileHidden }) {
   }
 
   return (
-    <aside className={`${mobileHidden ? 'hidden md:flex' : 'flex'} w-full md:w-60 flex-col bg-black/20 border-r border-[var(--border)] flex-shrink-0`}>
+    <aside className={`${mobileHidden ? 'hidden md:flex' : 'flex'} flex-1 min-w-0 md:flex-none md:w-60 flex-col bg-black/20 border-r border-[var(--border)]`}>
       {/* App title + search button */}
       <div className="px-4 py-5 border-b border-[var(--border)] flex items-start justify-between">
         <div>
