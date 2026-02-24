@@ -10,7 +10,7 @@ from app.models.channel import Channel
 from app.models.server import Server
 from app.models.server_membership import ROLE_MEMBER, ROLE_OWNER, ServerMembership
 from app.models.user import User
-from app.schemas.token import Token
+from app.schemas.token import RefreshRequest, RefreshResponse, Token
 from app.schemas.user import UserCreate, UserLogin, UserResponse
 from app.services import auth_service
 
@@ -109,8 +109,10 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db)) -> Token:
         user,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    refresh_token = auth_service.create_refresh_token(user, db)
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
         token_type="bearer",
         user=UserResponse.model_validate(user),
     )
@@ -133,11 +135,34 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)) -> Token:
         user,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    refresh_token = auth_service.create_refresh_token(user, db)
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
         token_type="bearer",
         user=UserResponse.model_validate(user),
     )
+
+
+@router.post("/refresh", response_model=RefreshResponse)
+async def refresh(body: RefreshRequest, db: Session = Depends(get_db)) -> RefreshResponse:
+    user = auth_service.validate_refresh_token(body.refresh_token, db)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
+    # Rotate: revoke old token, issue new pair
+    auth_service.revoke_refresh_token(body.refresh_token, db)
+    access_token = auth_service.create_access_token(
+        user,
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    new_refresh = auth_service.create_refresh_token(user, db)
+    return RefreshResponse(access_token=access_token, refresh_token=new_refresh)
+
+
+@router.post("/logout")
+async def logout(body: RefreshRequest, db: Session = Depends(get_db)) -> dict:
+    auth_service.revoke_refresh_token(body.refresh_token, db)
+    return {"ok": True}
 
 
 @router.get("/me", response_model=UserResponse)
