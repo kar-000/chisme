@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import useChatStore from '../../store/chatStore'
 import useServerStore from '../../store/serverStore'
 import { uploadFile } from '../../services/uploads'
@@ -56,9 +56,26 @@ export default function MessageInput({ onTyping }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
   const emojiButtonRef = useRef(null)
+  const fmtHintsRef = useRef(null)
   // Tracks the last known cursor position so emoji can be inserted at the right
   // spot even after the textarea loses focus when the picker opens.
   const selectionRef = useRef({ start: 0, end: 0 })
+
+  // Close fmt-hints popover when clicking outside it
+  useEffect(() => {
+    if (!showFmtHints) return
+    const handler = (e) => {
+      if (fmtHintsRef.current && !fmtHintsRef.current.contains(e.target)) {
+        setShowFmtHints(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [showFmtHints])
 
   const saveSelection = useCallback(() => {
     const el = textareaRef.current
@@ -403,16 +420,16 @@ export default function MessageInput({ onTyping }) {
         </button>
 
         {/* Formatting hints button */}
-        <div className="relative flex-shrink-0">
+        <div ref={fmtHintsRef} className="relative flex-shrink-0">
           <button
-            onMouseEnter={() => setShowFmtHints(true)}
-            onMouseLeave={() => setShowFmtHints(false)}
-            className="
+            onClick={() => setShowFmtHints((v) => !v)}
+            className={`
               h-9 w-9 flex items-center justify-center rounded
-              border border-[var(--border)] text-[var(--text-muted)]
-              hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
-              transition-all duration-200 font-mono text-xs font-bold
-            "
+              border transition-all duration-200 font-mono text-xs font-bold
+              ${showFmtHints
+                ? 'border-[var(--border-glow)] text-[var(--accent-teal)]'
+                : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]'}
+            `}
             title="Formatting help"
             type="button"
             data-testid="fmt-hints-button"
@@ -421,6 +438,15 @@ export default function MessageInput({ onTyping }) {
           </button>
           {showFmtHints && (
             <div className="fmt-hints" data-testid="fmt-hints-popover">
+              <button
+                type="button"
+                onClick={() => setShowFmtHints(false)}
+                className="absolute top-1.5 right-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]
+                           text-xs leading-none"
+                aria-label="Close formatting help"
+              >
+                ✕
+              </button>
               {`**bold**   *italic*   ~~strike~~   \`code\`\n\`\`\`lang  code block  \`\`\`   > quote`}
             </div>
           )}
@@ -441,7 +467,7 @@ export default function MessageInput({ onTyping }) {
             placeholder:text-[var(--text-muted)]
             focus:outline-none focus:border-[var(--border-glow)]
             focus:shadow-[0_0_12px_rgba(0,206,209,0.3)]
-            resize-none overflow-y-hidden transition-colors duration-200
+            resize-none overflow-y-auto transition-colors duration-200
             leading-relaxed
           "
         />

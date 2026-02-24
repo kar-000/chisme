@@ -937,14 +937,14 @@ em-emoji-picker {
   background: var(--bg-primary, #1a1612);
   border: 1px solid var(--border-glow, #00CED1);
   border-radius: 6px;
-  padding: 0.6em 0.9em;
+  padding: 0.6em 1.8em 0.6em 0.9em; /* right padding for close button */
   font-family: var(--font-mono, monospace);
   font-size: 0.72em;
   color: var(--text-muted, #8B8B8B);
   white-space: pre;
   z-index: 30;
   box-shadow: 0 0 12px rgba(0, 206, 209, 0.2);
-  pointer-events: none;
+  pointer-events: auto;
 }
 .fmt-hints span {
   color: var(--crt-teal, #00CED1);
