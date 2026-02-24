@@ -179,55 +179,58 @@ function MembersTab({ server, onClose }) {
             const isSelf = m.user_id === me?.id
             const isTheirOwner = m.role === 'owner'
             return (
-              <li key={m.user_id} className="flex items-center gap-2 px-3 py-2 rounded
+              <li key={m.user_id} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded
                                               bg-[var(--bg-hover)] text-sm">
-                <span className="flex-1 font-mono text-[var(--text-primary)] truncate">
+                <span className="flex-1 min-w-0 font-mono text-[var(--text-primary)] truncate">
                   {m.display_name || m.username}
                   {isSelf && <span className="text-[var(--text-muted)] text-xs ml-1">(you)</span>}
                 </span>
-                {/* Role badge / selector */}
-                {(isOwner && !isSelf && !isTheirOwner) ? (
-                  <select
-                    value={m.role}
-                    onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
-                    className="text-xs font-mono bg-[var(--bg-secondary)] border border-[var(--border)]
-                               text-[var(--text-muted)] rounded px-1 py-0.5 cursor-pointer"
-                  >
-                    <option value="member">member</option>
-                    <option value="admin">admin</option>
-                  </select>
-                ) : (
-                  <span className={`text-xs font-mono px-1.5 py-0.5 rounded
-                    ${isTheirOwner ? 'text-[var(--crt-orange)]' :
-                      m.role === 'admin' ? 'text-[var(--accent-teal)]' :
-                      'text-[var(--text-muted)]'}`}>
-                    {m.role}
-                  </span>
-                )}
-                {/* Transfer ownership */}
-                {isOwner && !isSelf && !isTheirOwner && (
-                  <button
-                    type="button"
-                    title="Transfer ownership"
-                    onClick={() => setConfirmTransfer(m)}
-                    className="text-xs text-[var(--text-muted)] hover:text-[var(--crt-orange)]
-                               transition-colors font-mono"
-                  >
-                    crown
-                  </button>
-                )}
-                {/* Kick */}
-                {(isOwner || isAdmin) && !isSelf && !isTheirOwner && (
-                  <button
-                    type="button"
-                    title="Remove member"
-                    onClick={() => setConfirmKick(m)}
-                    className="text-xs text-[var(--text-muted)] hover:text-[var(--text-error)]
-                               transition-colors font-mono"
-                  >
-                    kick
-                  </button>
-                )}
+                {/* Role + action buttons grouped so they wrap together */}
+                <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                  {/* Role badge / selector */}
+                  {(isOwner && !isSelf && !isTheirOwner) ? (
+                    <select
+                      value={m.role}
+                      onChange={(e) => handleRoleChange(m.user_id, e.target.value)}
+                      className="text-xs font-mono bg-[var(--bg-secondary)] border border-[var(--border)]
+                                 text-[var(--text-muted)] rounded px-1 py-0.5 cursor-pointer"
+                    >
+                      <option value="member">member</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  ) : (
+                    <span className={`text-xs font-mono px-1.5 py-0.5 rounded
+                      ${isTheirOwner ? 'text-[var(--crt-orange)]' :
+                        m.role === 'admin' ? 'text-[var(--accent-teal)]' :
+                        'text-[var(--text-muted)]'}`}>
+                      {m.role}
+                    </span>
+                  )}
+                  {/* Transfer ownership */}
+                  {isOwner && !isSelf && !isTheirOwner && (
+                    <button
+                      type="button"
+                      title="Transfer ownership"
+                      onClick={() => setConfirmTransfer(m)}
+                      className="text-xs text-[var(--text-muted)] hover:text-[var(--crt-orange)]
+                                 transition-colors font-mono"
+                    >
+                      crown
+                    </button>
+                  )}
+                  {/* Kick */}
+                  {(isOwner || isAdmin) && !isSelf && !isTheirOwner && (
+                    <button
+                      type="button"
+                      title="Remove member"
+                      onClick={() => setConfirmKick(m)}
+                      className="text-xs text-[var(--text-muted)] hover:text-[var(--text-error)]
+                                 transition-colors font-mono"
+                    >
+                      kick
+                    </button>
+                  )}
+                </div>
               </li>
             )
           })}
