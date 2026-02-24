@@ -84,8 +84,10 @@ function ChatLayout() {
         className="flex overflow-hidden bg-[var(--bg-primary)]"
         style={{ height: '100dvh' }}
       >
-        {/* Server list column — leftmost, 64px wide */}
-        <ServerList />
+        {/* Server list column — leftmost, 64px wide; hidden on mobile when in chat view */}
+        <div className={!sidebarOpen ? 'hidden md:block' : ''}>
+          <ServerList />
+        </div>
 
         {/* Channel sidebar */}
         <Sidebar
