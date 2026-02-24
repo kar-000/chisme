@@ -27,11 +27,13 @@ from app.api.operator import router as operator_router
 from app.api.polls import router as polls_router
 from app.api.presence import bulk_router
 from app.api.presence import router as presence_router
+from app.api.reminders import router as reminders_router
 from app.api.servers import router as servers_router
 from app.api.voice import router as voice_router
 from app.config import settings
 from app.database import configure_wal_for_replication, get_db
 from app.redis.client import close_redis, init_redis
+from app.tasks.reminder_task import scheduler as reminder_scheduler
 from app.websocket.handlers import dm_ws_handler, server_ws_handler
 from app.websocket.voice_handler import voice_ws_handler
 
@@ -47,8 +49,10 @@ configure_wal_for_replication()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    reminder_scheduler.start()
     await init_redis()
     yield
+    reminder_scheduler.shutdown(wait=False)
     await close_redis()
 
 
@@ -100,6 +104,7 @@ app.include_router(push.router, prefix="/api")
 app.include_router(bookmarks_router)  # prefix="/api/bookmarks" set on router
 app.include_router(keywords_router)  # prefix="/api/users/me/keywords" set on router
 app.include_router(polls_router)  # prefix="/api/polls" set on router
+app.include_router(reminders_router)  # prefix="/api/reminders" set on router
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

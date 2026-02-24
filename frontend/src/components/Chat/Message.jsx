@@ -9,6 +9,7 @@ import TwemojiEmoji from '../Common/TwemojiEmoji'
 import { MessageContent } from './MessageContent'
 import PollMessage from './PollMessage'
 import VoiceMessagePlayer from './VoiceMessagePlayer'
+import ReminderPicker from './ReminderPicker'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -175,6 +176,7 @@ export default function Message({ message }) {
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionPickerClass, setReactionPickerClass] = useState('bottom-full right-0')
   const [profileUserId, setProfileUserId] = useState(null)
+  const [showReminderPicker, setShowReminderPicker] = useState(false)
   const reactionButtonRef = useRef(null)
 
   const isOwn = message.user_id === user?.id
@@ -338,6 +340,24 @@ export default function Message({ message }) {
           >
             🔖
           </button>
+
+          {/* Remind me */}
+          <div className="relative">
+            <button
+              onClick={() => setShowReminderPicker((v) => !v)}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors px-1"
+              title="Remind me"
+              data-testid="remind-button"
+            >
+              ⏰
+            </button>
+            {showReminderPicker && (
+              <ReminderPicker
+                messageId={message.id}
+                onClose={() => setShowReminderPicker(false)}
+              />
+            )}
+          </div>
 
           <button
             onClick={() => setReplyingTo(message)}

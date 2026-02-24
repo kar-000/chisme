@@ -16,7 +16,7 @@ import { ServerList } from './components/Server/ServerList'
 import { InviteModal } from './components/Server/InviteModal'
 import { InviteLandingPage } from './pages/InviteLandingPage'
 import { OperatorDashboard } from './pages/OperatorDashboard'
-import BookmarksPanel from './components/Panels/BookmarksPanel'
+import PersonalPanel from './components/Panels/PersonalPanel'
 import { useFaviconBadge } from './hooks/useFaviconBadge'
 import { useInviteModal } from './hooks/useInviteModal'
 import { useVoiceWebSocket } from './hooks/useVoiceWebSocket'
@@ -116,7 +116,7 @@ function ChatLayout() {
         {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
         {invite.isOpen && <InviteModal onClose={invite.close} />}
         {bookmarksOpen && (
-          <BookmarksPanel
+          <PersonalPanel
             onClose={() => setBookmarksOpen(false)}
             onGoToMessage={(bookmark) => {
               const channelId = bookmark.message?.channel_id

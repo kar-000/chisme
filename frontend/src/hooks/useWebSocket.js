@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import useChatStore from '../store/chatStore'
 import useAuthStore from '../store/authStore'
+import useReminderStore from '../store/reminderStore'
 import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
 import { isInQuietHours } from '../utils/quietHours'
 
@@ -155,6 +156,17 @@ export function useWebSocket(serverId, token) {
         case 'voice.ice_candidate':
           pushVoiceSignal(data)
           break
+        case 'reminder_due': {
+          const { markDelivered } = useReminderStore.getState()
+          markDelivered(data.reminder?.id)
+          const msg = data.reminder?.message
+          const preview = msg?.content ? msg.content.slice(0, 80) : '(attachment)'
+          showNotification('⏰ Reminder', {
+            body: `${msg?.user?.username ?? ''}: ${preview}`,
+            tag: `reminder-${data.reminder?.id}`,
+          })
+          break
+        }
         default:
           break
       }

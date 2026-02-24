@@ -1139,6 +1139,30 @@ em-emoji-picker {
   color: var(--accent-teal);
 }
 
+/* ── Reminder item cards ─────────────────────────────────────────────── */
+.reminder-item {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  transition: border-color 0.15s;
+}
+
+.reminder-item:hover {
+  border-color: var(--accent-teal);
+}
+
+.reminder-time {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--accent-teal);
+  margin-bottom: 0.35rem;
+}
+
+.reminder-overdue .reminder-time {
+  color: #ff8c42;
+}
+
 /* ── Polls ──────────────────────────────────────────────────────────────── */
 
 .poll-card {
