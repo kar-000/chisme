@@ -76,7 +76,8 @@ export default function EmojiPicker({
       ref={containerRef}
       className={`absolute ${positionClass} mb-2 z-30 rounded overflow-hidden
                   border border-[var(--border-glow)]
-                  shadow-[0_0_20px_rgba(0,206,209,0.3)]`}
+                  shadow-[0_0_20px_rgba(0,206,209,0.3)]
+                  max-w-[calc(100vw-2rem)]`}
       data-testid="emoji-picker"
     >
       <Suspense

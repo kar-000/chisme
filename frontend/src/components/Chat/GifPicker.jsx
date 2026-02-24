@@ -65,7 +65,7 @@ export default function GifPicker({ onSelect, onClose }) {
           type="text"
           value={query}
           onChange={handleSearchChange}
-          placeholder="Search GIFs…"
+          placeholder="Search Tenor"
           autoFocus
           className="
             w-full bg-black/40 border border-[var(--border)] rounded px-2 py-1
@@ -114,6 +114,11 @@ export default function GifPicker({ onSelect, onClose }) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Required Tenor attribution */}
+      <div className="px-2 py-1 border-t border-[var(--border)] flex justify-end">
+        <span className="text-[10px] text-[var(--text-muted)] font-mono">Powered by Tenor</span>
       </div>
     </div>
   )
