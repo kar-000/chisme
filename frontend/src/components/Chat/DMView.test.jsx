@@ -106,7 +106,7 @@ describe('DMView', () => {
     const input = screen.getByTestId('dm-input')
     await userEvent.type(input, 'hello')
     fireEvent.keyDown(input, { key: 'Enter', shiftKey: false })
-    expect(mockSendDMMessage).toHaveBeenCalledWith('hello')
+    expect(mockSendDMMessage).toHaveBeenCalledWith('hello', [])
   })
 
   it('clears input after sending', async () => {

@@ -15,5 +15,6 @@ class DMChannelResponse(BaseModel):
 
 
 class DMMessageCreate(BaseModel):
-    content: str
+    content: str | None = None
     reply_to_id: int | None = None
+    attachment_ids: list[int] = []

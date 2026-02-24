@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.attachment import Attachment
 from app.models.dm_channel import DirectMessageChannel
 from app.models.message import Message
 from app.models.user import User
@@ -102,7 +103,8 @@ async def send_dm_message(
     if current_user.id not in (dm.user1_id, dm.user2_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a participant")
 
-    if not message_in.content or not message_in.content.strip():
+    has_content = bool(message_in.content and message_in.content.strip())
+    if not has_content and not message_in.attachment_ids:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Message cannot be empty")
 
     # Validate reply_to_id if provided
@@ -120,7 +122,7 @@ async def send_dm_message(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent message not found")
 
     msg = Message(
-        content=message_in.content.strip(),
+        content=message_in.content.strip() if has_content else "",
         user_id=current_user.id,
         dm_channel_id=dm_id,
         reply_to_id=message_in.reply_to_id,
@@ -130,6 +132,15 @@ async def send_dm_message(
     dm.last_message_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(msg)
+
+    if message_in.attachment_ids:
+        db.query(Attachment).filter(
+            Attachment.id.in_(message_in.attachment_ids),
+            Attachment.user_id == current_user.id,
+            Attachment.message_id.is_(None),
+        ).update({"message_id": msg.id}, synchronize_session=False)
+        db.commit()
+        db.refresh(msg)
 
     response = MessageResponse.model_validate(msg)
 

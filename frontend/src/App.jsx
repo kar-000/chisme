@@ -18,6 +18,7 @@ import { OperatorDashboard } from './pages/OperatorDashboard'
 import { useFaviconBadge } from './hooks/useFaviconBadge'
 import { useInviteModal } from './hooks/useInviteModal'
 import { useVoiceWebSocket } from './hooks/useVoiceWebSocket'
+import { useDMNotifications } from './hooks/useDMNotifications'
 
 // Detect special routes at module load time (before any React rendering)
 const pathname = window.location.pathname
@@ -32,6 +33,7 @@ function ChatLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token)
+  useDMNotifications()
   const invite = useInviteModal()
 
   const handleNavigate = () => setSidebarOpen(false)

@@ -51,10 +51,10 @@ const useDMStore = create((set, get) => ({
     }
   },
 
-  sendDMMessage: async (content, replyToId = null) => {
+  sendDMMessage: async (content, attachmentIds = [], replyToId = null) => {
     const { activeDmId } = get()
     if (!activeDmId) return
-    await sendDMMessage(activeDmId, content, replyToId)
+    await sendDMMessage(activeDmId, content, attachmentIds, replyToId)
     get().fetchDMMessages(activeDmId)
   },
 
