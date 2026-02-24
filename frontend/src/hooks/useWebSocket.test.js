@@ -37,8 +37,21 @@ beforeEach(() => {
       adjustChannelVoiceCount: mockAdjustChannelVoiceCount,
     })
   )
-  // Active channel matches channel_id in test payloads so message.new is appended
-  useChatStore.getState.mockReturnValue({ activeChannelId: 1 })
+  // getState() is now the sole source for both activeChannelId and all action fns
+  useChatStore.getState.mockReturnValue({
+    activeChannelId: 1,
+    appendMessageForChannel: mockAppendMessageForChannel,
+    incrementUnread: mockIncrementUnread,
+    updateMessage: mockUpdateMessage,
+    removeMessage: mockRemoveMessage,
+    updatePollInMessage: vi.fn(),
+    setTypingUsers: mockSetTypingUsers,
+    setVoiceUser: mockSetVoiceUser,
+    removeVoiceUser: mockRemoveVoiceUser,
+    pushVoiceSignal: mockPushVoiceSignal,
+    setChannelVoiceCount: mockSetChannelVoiceCount,
+    adjustChannelVoiceCount: mockAdjustChannelVoiceCount,
+  })
 })
 
 function getInstance() {
