@@ -15,3 +15,6 @@ export const uploadAvatar = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
 }
+
+export const getQuietHours = () => api.get('/users/me/quiet-hours')
+export const updateQuietHours = (payload) => api.patch('/users/me/quiet-hours', payload)

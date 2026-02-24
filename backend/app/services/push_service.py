@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.push_subscription import PushSubscription
+from app.models.user import User
+from app.services.notification_service import is_user_in_quiet_hours
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,10 @@ def send_push_to_user(
     except ImportError:
         logger.warning("pywebpush not installed — push notifications disabled")
         return
+
+    user = db.query(User).filter_by(id=user_id).first()
+    if user and is_user_in_quiet_hours(user):
+        return  # suppress push during quiet hours / DND
 
     subscriptions = db.query(PushSubscription).filter_by(user_id=user_id).all()
 

@@ -25,7 +25,6 @@ export async function requestNotificationPermission() {
 
 export function showNotification(title, { body, tag, onClick } = {}) {
   if (Notification.permission !== 'granted') return
-  if (document.hasFocus()) return // don't spam when user is looking at the tab
 
   const n = new Notification(title, {
     body,

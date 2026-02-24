@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import useChatStore from '../store/chatStore'
 import useAuthStore from '../store/authStore'
 import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
+import { isInQuietHours } from '../utils/quietHours'
 
 const MAX_RECONNECT_ATTEMPTS = 10
 
@@ -80,10 +81,13 @@ export function useWebSocket(serverId, token) {
             incrementUnread(channelId)
           }
           if (!isOwnMessage && me && isMention(data.message?.content, me.username)) {
-            showNotification(
-              `@${me.username} mentioned by ${data.message?.user?.username}`,
-              { body: data.message?.content, tag: `mention-${data.message?.id}` }
-            )
+            const quietHours = useAuthStore.getState().quietHours
+            if (!isInQuietHours(quietHours)) {
+              showNotification(
+                `@${me.username} mentioned by ${data.message?.user?.username}`,
+                { body: data.message?.content, tag: `mention-${data.message?.id}` }
+              )
+            }
           }
           break
         }

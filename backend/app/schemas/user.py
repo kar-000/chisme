@@ -56,6 +56,23 @@ class UserUpdate(BaseModel):
     status: str | None = Field(None, max_length=100)
 
 
+class QuietHoursUpdate(BaseModel):
+    enabled: bool = False
+    start: str | None = None  # "HH:MM" 24-hour
+    end: str | None = None  # "HH:MM" 24-hour
+    timezone: str | None = None  # IANA tz string
+    dnd_override: str | None = None  # "on" | "off" | null
+
+
+class QuietHoursResponse(BaseModel):
+    enabled: bool
+    start: str | None
+    end: str | None
+    timezone: str | None
+    dnd_override: str | None
+    currently_active: bool
+
+
 class OperatorUserResponse(BaseModel):
     """Extended user info exposed only to site admins via /api/operator/users."""
 
