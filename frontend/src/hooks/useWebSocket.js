@@ -27,19 +27,6 @@ export function useWebSocket(serverId, token) {
   const attemptsRef = useRef(0)
   const mountedRef = useRef(true)
   const notifPermRequested = useRef(false)
-
-  const me = useAuthStore((s) => s.user)
-  const appendMessageForChannel = useChatStore((s) => s.appendMessageForChannel)
-  const incrementUnread = useChatStore((s) => s.incrementUnread)
-  const updateMessage = useChatStore((s) => s.updateMessage)
-  const removeMessage = useChatStore((s) => s.removeMessage)
-  const updatePollInMessage = useChatStore((s) => s.updatePollInMessage)
-  const setTypingUsers = useChatStore((s) => s.setTypingUsers)
-  const setVoiceUser = useChatStore((s) => s.setVoiceUser)
-  const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
-  const pushVoiceSignal = useChatStore((s) => s.pushVoiceSignal)
-  const setChannelVoiceCount = useChatStore((s) => s.setChannelVoiceCount)
-  const adjustChannelVoiceCount = useChatStore((s) => s.adjustChannelVoiceCount)
   const typingTimeouts = useRef({})
 
   const connect = useCallback(() => {
@@ -71,7 +58,22 @@ export function useWebSocket(serverId, token) {
       try { data = JSON.parse(ev.data) } catch { return }
 
       const channelId = data.channel_id
-      const activeChannelId = useChatStore.getState().activeChannelId
+      const {
+        activeChannelId,
+        appendMessageForChannel,
+        incrementUnread,
+        updateMessage,
+        removeMessage,
+        updatePollInMessage,
+        setTypingUsers,
+        setVoiceUser,
+        removeVoiceUser,
+        pushVoiceSignal,
+        setChannelVoiceCount,
+        adjustChannelVoiceCount,
+      } = useChatStore.getState()
+
+      const me = useAuthStore.getState().user
 
       switch (data.type) {
         case 'message.new': {
@@ -165,21 +167,7 @@ export function useWebSocket(serverId, token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [
-    serverId,
-    token,
-    appendMessageForChannel,
-    incrementUnread,
-    updateMessage,
-    removeMessage,
-    updatePollInMessage,
-    setTypingUsers,
-    setVoiceUser,
-    removeVoiceUser,
-    pushVoiceSignal,
-    setChannelVoiceCount,
-    adjustChannelVoiceCount,
-  ])
+  }, [serverId, token])
 
   // Send a typing indicator for the currently-active channel
   const sendTyping = useCallback((channelId) => {
