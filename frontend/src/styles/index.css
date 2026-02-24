@@ -1313,3 +1313,62 @@ em-emoji-picker {
   border-color: var(--accent-teal);
   color: var(--accent-teal);
 }
+
+/* ── Keyword Notifications ──────────────────────────────────────────────── */
+
+.keyword-highlight {
+  background: rgba(0, 206, 209, 0.2);
+  border-radius: 2px;
+  padding: 0 0.15em;
+  color: var(--accent-teal);
+  font-style: normal;
+}
+
+.keyword-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  min-height: 44px;
+  cursor: text;
+}
+
+.keyword-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(0, 206, 209, 0.12);
+  border: 1px solid var(--accent-teal);
+  border-radius: 12px;
+  font-size: var(--text-xs);
+  color: var(--accent-teal);
+}
+
+.keyword-chip button {
+  background: none;
+  border: none;
+  color: var(--accent-teal);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.keyword-chip button:hover { opacity: 1; }
+
+.keyword-input {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  outline: none;
+  min-width: 100px;
+  flex: 1;
+}

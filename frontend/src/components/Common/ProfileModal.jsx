@@ -5,6 +5,7 @@ import useAuthStore from '../../store/authStore'
 import useDMStore from '../../store/dmStore'
 import useChatStore from '../../store/chatStore'
 import { getUser, updateMe, uploadAvatar, getQuietHours, updateQuietHours } from '../../services/users'
+import { addKeyword, deleteKeyword, getKeywords } from '../../services/keywords'
 import { isInQuietHours } from '../../utils/quietHours'
 
 function Avatar({ username, avatarUrl, size = 56 }) {
@@ -124,11 +125,54 @@ function QuietHoursPanel({ qh, saving, error, onChange }) {
   )
 }
 
+function KeywordsPanel({ keywords, onAdd, onRemove }) {
+  const [input, setInput] = useState('')
+
+  const handleKeyDown = (e) => {
+    if ((e.key === 'Enter' || e.key === ',') && input.trim()) {
+      e.preventDefault()
+      onAdd(input.trim().toLowerCase())
+      setInput('')
+    }
+  }
+
+  return (
+    <div className="quiet-hours-panel">
+      <div>
+        <p className="text-sm text-[var(--text-primary)] font-mono">Keyword Notifications</p>
+        <p className="text-xs text-[var(--text-muted)] mt-0.5">
+          Get notified like a @mention when these words appear in a message.
+        </p>
+      </div>
+      <div className="keyword-chips">
+        {keywords.map((kw) => (
+          <span key={kw.id} className="keyword-chip">
+            {kw.keyword}
+            <button onClick={() => onRemove(kw.id)} type="button">✕</button>
+          </span>
+        ))}
+        <input
+          className="keyword-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={keywords.length >= 20 ? 'Limit reached' : 'Add keyword…'}
+          maxLength={50}
+          disabled={keywords.length >= 20}
+        />
+      </div>
+      <p className="text-[10px] text-[var(--text-muted)] font-mono">
+        {keywords.length}/20 · Press Enter or , to add
+      </p>
+    </div>
+  )
+}
+
 /**
  * Shows a user profile.  When userId === current user's id, shows edit controls.
  */
 export default function ProfileModal({ userId, onClose }) {
-  const { user: me, setUser, quietHours: storedQH, setQuietHours } = useAuthStore()
+  const { user: me, setUser, quietHours: storedQH, setQuietHours, keywords: storedKws, setKeywords } = useAuthStore()
   const isOwn = userId === me?.id
   const openDM = useDMStore((s) => s.openDM)
   const clearActiveChannel = useChatStore((s) => s.clearActiveChannel)
@@ -146,6 +190,9 @@ export default function ProfileModal({ userId, onClose }) {
   const [qh, setQh] = useState(null)
   const [qhSaving, setQhSaving] = useState(false)
   const [qhError, setQhError] = useState(null)
+
+  // Keyword notifications state (own profile only)
+  const [kws, setKws] = useState(storedKws ?? [])
 
   useEffect(() => {
     getUser(userId)
@@ -165,6 +212,12 @@ export default function ProfileModal({ userId, onClose }) {
         .then((r) => {
           setQh(r.data)
           setQuietHours(r.data)
+        })
+        .catch(() => {})
+      getKeywords()
+        .then((r) => {
+          setKws(r.data)
+          setKeywords(r.data)
         })
         .catch(() => {})
     }
@@ -404,26 +457,47 @@ export default function ProfileModal({ userId, onClose }) {
         </div>
       ))}
 
-      {/* Notifications tab — quiet hours settings */}
+      {/* Notifications tab — quiet hours + keyword settings */}
       {activeTab === 'notifications' && isOwn && (
-        <QuietHoursPanel
-          qh={qh}
-          saving={qhSaving}
-          error={qhError}
-          onChange={async (patch) => {
-            setQhSaving(true)
-            setQhError(null)
-            try {
-              const { data } = await updateQuietHours(patch)
-              setQh(data)
-              setQuietHours(data)
-            } catch {
-              setQhError('Failed to save notification settings.')
-            } finally {
-              setQhSaving(false)
-            }
-          }}
-        />
+        <>
+          <QuietHoursPanel
+            qh={qh}
+            saving={qhSaving}
+            error={qhError}
+            onChange={async (patch) => {
+              setQhSaving(true)
+              setQhError(null)
+              try {
+                const { data } = await updateQuietHours(patch)
+                setQh(data)
+                setQuietHours(data)
+              } catch {
+                setQhError('Failed to save notification settings.')
+              } finally {
+                setQhSaving(false)
+              }
+            }}
+          />
+          <KeywordsPanel
+            keywords={kws}
+            onAdd={async (kw) => {
+              try {
+                const { data } = await addKeyword(kw)
+                const next = [...kws.filter((k) => k.id !== data.id), data]
+                setKws(next)
+                setKeywords(next)
+              } catch { /* ignore duplicates */ }
+            }}
+            onRemove={async (id) => {
+              try {
+                await deleteKeyword(id)
+                const next = kws.filter((k) => k.id !== id)
+                setKws(next)
+                setKeywords(next)
+              } catch { /* ignore */ }
+            }}
+          />
+        </>
       )}
     </Modal>
   )

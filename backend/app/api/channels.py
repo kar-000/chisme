@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -9,6 +10,7 @@ from app.api.deps import require_server_admin, require_server_member
 from app.database import get_db
 from app.models.attachment import Attachment
 from app.models.channel import Channel
+from app.models.keyword import UserKeyword
 from app.models.message import Message
 from app.models.poll import Poll, PollOption, PollVote
 from app.models.read_receipt import ReadReceipt
@@ -433,5 +435,32 @@ async def send_message(
                         tag=f"mention-{message.id}",
                         db=db,
                     )
+
+        # Keyword notifications — push to offline users who have a keyword match
+        content_lower = message_in.content.lower()
+        keyword_rows = (
+            db.query(UserKeyword)
+            .join(ServerMembership, ServerMembership.user_id == UserKeyword.user_id)
+            .filter(
+                ServerMembership.server_id == server_id,
+                UserKeyword.user_id != current_user_id,
+            )
+            .all()
+        )
+        keyword_matches: dict[int, list[str]] = {}
+        for kw_row in keyword_rows:
+            if re.search(re.escape(kw_row.keyword), content_lower):
+                keyword_matches.setdefault(kw_row.user_id, []).append(kw_row.keyword)
+
+        for uid, _kws in keyword_matches.items():
+            if uid not in connected_users:
+                send_push_to_user(
+                    user_id=uid,
+                    title=f"{current_user.username} mentioned a keyword in #{channel.name}",
+                    body=message_in.content[:100],
+                    url=f"/?channel={channel_id}",
+                    tag=f"keyword-{message.id}-{uid}",
+                    db=db,
+                )
 
     return response

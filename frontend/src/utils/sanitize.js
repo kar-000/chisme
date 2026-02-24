@@ -10,12 +10,14 @@ export const chismeSanitizeSchema = {
     'blockquote',
     'a',
     'span',  // used for @mention rendering
+    'mark',  // used for keyword highlight rendering
     'ul', 'ol', 'li',
   ],
   attributes: {
     a: ['href', 'target', 'rel'],
     code: ['className'],          // language-* class for syntax highlighting
     span: ['data-mention'],       // @mention identity
+    mark: ['data-keyword'],       // keyword highlight identity
   },
   protocols: {
     href: ['http', 'https'],      // blocks javascript: and data: URIs

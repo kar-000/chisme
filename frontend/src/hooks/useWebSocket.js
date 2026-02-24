@@ -83,13 +83,23 @@ export function useWebSocket(serverId, token) {
           } else if (!isOwnMessage) {
             incrementUnread(channelId)
           }
-          if (!isOwnMessage && me && isMention(data.message?.content, me.username)) {
-            const quietHours = useAuthStore.getState().quietHours
-            if (!isInQuietHours(quietHours)) {
-              showNotification(
-                `@${me.username} mentioned by ${data.message?.user?.username}`,
-                { body: data.message?.content, tag: `mention-${data.message?.id}` }
-              )
+          if (!isOwnMessage && me) {
+            const { quietHours, keywords } = useAuthStore.getState()
+            const content = data.message?.content ?? ''
+            const isMentioned = isMention(content, me.username)
+            const contentLower = content.toLowerCase()
+            const matchedKeyword = !isMentioned && keywords.length > 0
+              ? keywords.find((k) => contentLower.includes(k.keyword))
+              : null
+
+            if ((isMentioned || matchedKeyword) && !isInQuietHours(quietHours)) {
+              const title = isMentioned
+                ? `@${me.username} mentioned by ${data.message?.user?.username}`
+                : `Keyword "${matchedKeyword.keyword}" in message from ${data.message?.user?.username}`
+              showNotification(title, {
+                body: content,
+                tag: `mention-${data.message?.id}`,
+              })
             }
           }
           break

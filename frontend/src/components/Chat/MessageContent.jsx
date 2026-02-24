@@ -50,6 +50,43 @@ function remarkMentions() {
   }
 }
 
+/** Remark plugin — wraps keyword matches in span[data-keyword] elements. */
+function remarkKeywords(keywords) {
+  if (!keywords || keywords.length === 0) return () => {}
+  const pattern = new RegExp(
+    `(${keywords.map((k) => k.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`,
+    'gi',
+  )
+  return () => (tree) => {
+    visit(tree, 'text', (node, index, parent) => {
+      if (!parent || !pattern.test(node.value)) return
+      pattern.lastIndex = 0
+      const parts = node.value.split(pattern)
+      if (parts.length === 1) return
+
+      const newNodes = parts
+        .filter((p) => p !== '')
+        .map((part) => {
+          if (pattern.test(part)) {
+            pattern.lastIndex = 0
+            return {
+              type: 'keyword',
+              children: [{ type: 'text', value: part }],
+              data: {
+                hName: 'mark',
+                hProperties: { 'data-keyword': part.toLowerCase() },
+              },
+            }
+          }
+          pattern.lastIndex = 0
+          return { type: 'text', value: part }
+        })
+
+      parent.children.splice(index, 1, ...newNodes)
+    })
+  }
+}
+
 function CopyButton({ content }) {
   const [copied, setCopied] = useState(false)
 
@@ -86,8 +123,9 @@ function CopyButton({ content }) {
  * Supports: bold, italic, strikethrough, inline code, code blocks (with
  * optional syntax highlighting and copy button), blockquotes, and links.
  * @mentions are rendered as interactive buttons.
+ * Keyword matches are highlighted if keywords prop is provided.
  */
-export function MessageContent({ content, currentUsername, isOwn, onMentionClick }) {
+export function MessageContent({ content, currentUsername, isOwn, onMentionClick, keywords }) {
   const components = useMemo(() => ({
     // Pass through — code component handles block rendering
     pre: ({ children }) => <>{children}</>,
@@ -159,16 +197,27 @@ export function MessageContent({ content, currentUsername, isOwn, onMentionClick
       }
       return <span {...props}>{children}</span>
     },
+
+    // Keyword highlight marks injected by remarkKeywords plugin
+    mark({ 'data-keyword': kw, children, ...props }) {
+      if (kw !== undefined) {
+        return <mark className="keyword-highlight">{children}</mark>
+      }
+      return <mark {...props}>{children}</mark>
+    },
   }), [currentUsername, isOwn, onMentionClick])
+
+  const remarkPlugins = useMemo(() => [
+    remarkFlattenHeadings,
+    remarkMentions,
+    [remarkGfm, { singleTilde: false }],
+    ...(keywords?.length > 0 ? [remarkKeywords(keywords)] : []),
+  ], [keywords])
 
   return (
     <div className="msg-content">
       <ReactMarkdown
-        remarkPlugins={[
-          remarkFlattenHeadings,
-          remarkMentions,
-          [remarkGfm, { singleTilde: false }],
-        ]}
+        remarkPlugins={remarkPlugins}
         rehypePlugins={[
           [rehypeSanitize, chismeSanitizeSchema],
         ]}
