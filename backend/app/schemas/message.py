@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.attachment import AttachmentResponse
+from app.schemas.poll import PollResponse
 from app.schemas.reaction import ReactionResponse
 from app.schemas.user import UserResponse
 
@@ -46,6 +47,7 @@ class MessageResponse(BaseModel):
     user: UserResponse
     reactions: list[ReactionResponse] = []
     attachments: list[AttachmentResponse] = []
+    poll: PollResponse | None = None
 
     model_config = {"from_attributes": True}
 

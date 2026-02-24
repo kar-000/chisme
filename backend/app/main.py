@@ -23,6 +23,7 @@ from app.api import auth, channels, dms, gifs, health, messages, push, search, u
 from app.api.bookmarks import router as bookmarks_router
 from app.api.invites import router as invites_router
 from app.api.operator import router as operator_router
+from app.api.polls import router as polls_router
 from app.api.presence import bulk_router
 from app.api.presence import router as presence_router
 from app.api.servers import router as servers_router
@@ -96,6 +97,7 @@ app.include_router(voice_router, prefix="/api")
 app.include_router(search.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(bookmarks_router)  # prefix="/api/bookmarks" set on router
+app.include_router(polls_router)  # prefix="/api/polls" set on router
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")

@@ -127,6 +127,17 @@ const useChatStore = create((set, get) => ({
     }))
   },
 
+  // Update only the poll portion of a message (called on poll_updated WS event)
+  updatePollInMessage: (messageId, pollPatch) => {
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.id === messageId && m.poll
+          ? { ...m, poll: { ...m.poll, ...pollPatch } }
+          : m
+      ),
+    }))
+  },
+
   removeMessage: (id) => {
     set((s) => ({ messages: s.messages.filter((m) => m.id !== id) }))
   },

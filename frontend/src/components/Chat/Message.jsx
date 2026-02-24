@@ -7,6 +7,7 @@ import { getUserByUsername } from '../../services/users'
 import EmojiPicker from './EmojiPicker'
 import TwemojiEmoji from '../Common/TwemojiEmoji'
 import { MessageContent } from './MessageContent'
+import PollMessage from './PollMessage'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -248,6 +249,8 @@ export default function Message({ message }) {
             <button type="submit" className="text-xs text-[var(--text-primary)] hover:glow-teal px-2">save</button>
             <button type="button" onClick={() => setEditing(false)} className="text-xs text-[var(--text-muted)] px-2">cancel</button>
           </form>
+        ) : message.poll ? (
+          <PollMessage poll={message.poll} messageId={message.id} />
         ) : (
           <div className={isOwn ? 'glow-pink' : 'glow-teal'}>
             <MessageContent
