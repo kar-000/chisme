@@ -949,3 +949,74 @@ em-emoji-picker {
 .fmt-hints span {
   color: var(--crt-teal, #00CED1);
 }
+
+/* ── Quiet Hours / DND settings panel ────────────────────────────────── */
+.quiet-hours-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.quiet-hours-times {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.quiet-hours-times input[type="time"] {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+}
+
+.quiet-hours-times input[type="time"]:focus {
+  border-color: var(--accent-teal);
+  box-shadow: var(--glow-sm);
+  outline: none;
+}
+
+.dnd-override-group {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.dnd-override-group button {
+  padding: 0.3rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dnd-override-group button:last-child {
+  border-right: none;
+}
+
+.dnd-override-group button.active {
+  background: rgba(0, 206, 209, 0.15);
+  color: var(--accent-teal);
+}
+
+.dnd-override-group button:hover:not(.active) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.dnd-override-group button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -145,6 +145,10 @@ class ConnectionManager:
         for uid in dead:
             self.disconnect_dm(uid, dm_id)
 
+    def get_dm_users(self, dm_id: int) -> list[int]:
+        """Return user_ids currently connected to a DM channel."""
+        return list(self._dm_connections.get(dm_id, {}).keys())
+
     async def send_personal(self, websocket: WebSocket, payload: dict) -> None:
         await websocket.send_text(json.dumps(payload))
 
