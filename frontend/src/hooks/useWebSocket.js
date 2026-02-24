@@ -72,19 +72,21 @@ export function useWebSocket(serverId, token) {
       const activeChannelId = useChatStore.getState().activeChannelId
 
       switch (data.type) {
-        case 'message.new':
+        case 'message.new': {
+          const isOwnMessage = me && data.message?.user_id === me.id
           if (channelId === activeChannelId) {
             appendMessageForChannel(channelId, data.message)
-          } else {
+          } else if (!isOwnMessage) {
             incrementUnread(channelId)
           }
-          if (me && isMention(data.message?.content, me.username)) {
+          if (!isOwnMessage && me && isMention(data.message?.content, me.username)) {
             showNotification(
               `@${me.username} mentioned by ${data.message?.user?.username}`,
               { body: data.message?.content, tag: `mention-${data.message?.id}` }
             )
           }
           break
+        }
         case 'message.updated':
           updateMessage(data.message)
           break

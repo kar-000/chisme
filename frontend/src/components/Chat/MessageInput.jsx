@@ -132,7 +132,7 @@ export default function MessageInput({ onTyping }) {
       mentionTimerRef.current = setTimeout(async () => {
         if (!activeChannelId) return
         try {
-          const { data } = await getChannelMembers(activeChannelId, m.query || undefined)
+          const { data } = await getChannelMembers(activeServerId, activeChannelId, m.query || undefined)
           const members = data.slice(0, 6)
           // Prepend @all if the typed prefix is compatible (empty, or starts with 'all')
           const q = m.query.toLowerCase()

@@ -158,6 +158,7 @@ export default function Message({ message }) {
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [reactionPickerClass, setReactionPickerClass] = useState('bottom-full right-0')
   const [profileUserId, setProfileUserId] = useState(null)
   const reactionButtonRef = useRef(null)
 
@@ -276,7 +277,16 @@ export default function Message({ message }) {
           <button
             ref={reactionButtonRef}
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => setShowReactionPicker((v) => !v)}
+            onClick={() => {
+              if (!showReactionPicker) {
+                const rect = reactionButtonRef.current?.getBoundingClientRect()
+                // Emoji picker is ~435px tall; open downward if insufficient space above
+                setReactionPickerClass(
+                  rect && rect.top > 435 ? 'bottom-full right-0' : 'top-full right-0'
+                )
+              }
+              setShowReactionPicker((v) => !v)
+            }}
             className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors px-1"
             title="Add reaction"
             data-testid="add-reaction-button"
@@ -289,7 +299,7 @@ export default function Message({ message }) {
               onSelect={(emoji) => addReaction(message.id, emoji)}
               onClose={() => setShowReactionPicker(false)}
               anchorRef={reactionButtonRef}
-              positionClass="bottom-full right-0"
+              positionClass={reactionPickerClass}
             />
           )}
 
