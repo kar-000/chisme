@@ -33,6 +33,7 @@ export default function MessageInput({ onTyping }) {
   const [showPollModal, setShowPollModal] = useState(false)
   const [sendError, setSendError] = useState('')
   const [showFmtHints, setShowFmtHints] = useState(false)
+  const [showExtras, setShowExtras] = useState(false)
 
   // Mention autocomplete state
   const [mention, setMention] = useState(null) // { query, triggerStart } | null
@@ -57,6 +58,7 @@ export default function MessageInput({ onTyping }) {
   const fileInputRef = useRef(null)
   const emojiButtonRef = useRef(null)
   const fmtHintsRef = useRef(null)
+  const extrasRef = useRef(null)
   // Tracks the last known cursor position so emoji can be inserted at the right
   // spot even after the textarea loses focus when the picker opens.
   const selectionRef = useRef({ start: 0, end: 0 })
@@ -76,6 +78,22 @@ export default function MessageInput({ onTyping }) {
       document.removeEventListener('touchstart', handler)
     }
   }, [showFmtHints])
+
+  // Close extras popover when clicking outside it
+  useEffect(() => {
+    if (!showExtras) return
+    const handler = (e) => {
+      if (extrasRef.current && !extrasRef.current.contains(e.target)) {
+        setShowExtras(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [showExtras])
 
   const saveSelection = useCallback(() => {
     const el = textareaRef.current
@@ -353,7 +371,7 @@ export default function MessageInput({ onTyping }) {
           />
         )}
 
-        {/* Paperclip button */}
+        {/* Paperclip button — always visible */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="
@@ -369,11 +387,79 @@ export default function MessageInput({ onTyping }) {
           📎
         </button>
 
-        {/* GIF button */}
+        {/* + overflow button — mobile only; reveals GIF / Poll / ? / Emoji in a popover */}
+        <div ref={extrasRef} className="relative flex-shrink-0 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setShowExtras((v) => !v)}
+            className={`
+              h-9 w-9 flex items-center justify-center rounded
+              border transition-all duration-200 font-mono text-base font-bold
+              ${showExtras
+                ? 'border-[var(--border-glow)] text-[var(--accent-teal)]'
+                : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]'}
+            `}
+            title="More actions"
+            aria-label="More actions"
+          >
+            +
+          </button>
+          {showExtras && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1.5 p-2
+                            bg-[var(--bg-primary)] border border-[var(--border-glow)] rounded
+                            shadow-[0_0_12px_rgba(0,206,209,0.2)] z-30">
+              {/* GIF */}
+              <button
+                onClick={() => { setShowGifPicker((v) => !v); setShowExtras(false) }}
+                className="
+                  h-9 px-2 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+                  transition-all duration-200 font-mono text-xs font-bold
+                "
+                title="Insert GIF"
+                data-testid="gif-button-mobile"
+              >
+                GIF
+              </button>
+              {/* Poll */}
+              <button
+                onClick={() => { setShowPollModal(true); setShowExtras(false) }}
+                className="
+                  h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+                  transition-all duration-200 text-base
+                "
+                title="Create poll"
+                data-testid="poll-button-mobile"
+              >
+                📊
+              </button>
+              {/* Emoji */}
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setShowEmojiPicker((v) => !v); setShowExtras(false) }}
+                className="
+                  h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+                  transition-all duration-200 text-base
+                "
+                title="Insert emoji"
+                data-testid="emoji-button-mobile"
+              >
+                😊
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* GIF button — desktop only */}
         <button
           onClick={() => setShowGifPicker((v) => !v)}
           className="
-            h-9 px-2 flex items-center justify-center rounded flex-shrink-0
+            hidden sm:flex h-9 px-2 items-center justify-center rounded flex-shrink-0
             border border-[var(--border)] text-[var(--text-muted)]
             hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
             hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
@@ -385,11 +471,11 @@ export default function MessageInput({ onTyping }) {
           GIF
         </button>
 
-        {/* Poll button */}
+        {/* Poll button — desktop only */}
         <button
           onClick={() => setShowPollModal(true)}
           className="
-            h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+            hidden sm:flex h-9 w-9 items-center justify-center rounded flex-shrink-0
             border border-[var(--border)] text-[var(--text-muted)]
             hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
             hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
@@ -401,13 +487,13 @@ export default function MessageInput({ onTyping }) {
           📊
         </button>
 
-        {/* Emoji button — onMouseDown prevents focus theft so cursor position is preserved */}
+        {/* Emoji button — desktop only; onMouseDown prevents focus theft */}
         <button
           ref={emojiButtonRef}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setShowEmojiPicker((v) => !v)}
           className="
-            h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+            hidden sm:flex h-9 w-9 items-center justify-center rounded flex-shrink-0
             border border-[var(--border)] text-[var(--text-muted)]
             hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
             hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
@@ -419,8 +505,8 @@ export default function MessageInput({ onTyping }) {
           😊
         </button>
 
-        {/* Formatting hints button */}
-        <div ref={fmtHintsRef} className="relative flex-shrink-0">
+        {/* Formatting hints button — desktop only */}
+        <div ref={fmtHintsRef} className="relative flex-shrink-0 hidden sm:block">
           <button
             onClick={() => setShowFmtHints((v) => !v)}
             className={`
