@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import useChatStore from '../store/chatStore'
 import useAuthStore from '../store/authStore'
 import useReminderStore from '../store/reminderStore'
+import useChannelNotesStore from '../store/channelNotesStore'
 import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
 import { isInQuietHours } from '../utils/quietHours'
 
@@ -165,6 +166,17 @@ export function useWebSocket(serverId, token) {
             body: `${msg?.user?.username ?? ''}: ${preview}`,
             tag: `reminder-${data.reminder?.id}`,
           })
+          break
+        }
+        case 'channel_notes_updated': {
+          const { applyWsUpdate } = useChannelNotesStore.getState()
+          if (data.channel_id != null) {
+            applyWsUpdate(data.channel_id, {
+              content: data.content,
+              version: data.version,
+              updated_by: data.updated_by,
+            })
+          }
           break
         }
         default:

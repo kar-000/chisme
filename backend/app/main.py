@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.api import auth, channels, dms, gifs, health, messages, push, search, uploads, users
 from app.api.bookmarks import router as bookmarks_router
+from app.api.channel_notes import router as channel_notes_router
 from app.api.invites import router as invites_router
 from app.api.keywords import router as keywords_router
 from app.api.operator import router as operator_router
@@ -105,6 +106,7 @@ app.include_router(bookmarks_router)  # prefix="/api/bookmarks" set on router
 app.include_router(keywords_router)  # prefix="/api/users/me/keywords" set on router
 app.include_router(polls_router)  # prefix="/api/polls" set on router
 app.include_router(reminders_router)  # prefix="/api/reminders" set on router
+app.include_router(channel_notes_router)  # /api/channels/{id}/notes
 
 # Serve uploaded files as static assets
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
