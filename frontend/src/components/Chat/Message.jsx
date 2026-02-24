@@ -154,7 +154,7 @@ function ReactionBar({ reactions = [], messageId }) {
 }
 
 export default function Message({ message }) {
-  const { user } = useAuthStore()
+  const { user, keywords } = useAuthStore()
   const { editMessage, deleteMessage, addReaction, setReplyingTo } = useChatStore()
   const { bookmarkedMessageIds, addBookmark, removeBookmarkByMessageId } = useBookmarkStore()
   const [editing, setEditing] = useState(false)
@@ -257,6 +257,7 @@ export default function Message({ message }) {
               content={message.content}
               currentUsername={user?.username}
               isOwn={isOwn}
+              keywords={keywords}
               onMentionClick={async (username) => {
                 try {
                   const { data } = await getUserByUsername(username)
