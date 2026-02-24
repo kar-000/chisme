@@ -8,6 +8,7 @@ import EmojiPicker from './EmojiPicker'
 import TwemojiEmoji from '../Common/TwemojiEmoji'
 import { MessageContent } from './MessageContent'
 import PollMessage from './PollMessage'
+import VoiceMessagePlayer from './VoiceMessagePlayer'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -26,6 +27,17 @@ function Attachments({ attachments }) {
         {attachments.map((a) => {
           const isImage = a.mime_type.startsWith('image/')
           const isVideo = a.mime_type.startsWith('video/')
+          const isAudio = a.mime_type.startsWith('audio/')
+
+          if (isAudio) {
+            return (
+              <VoiceMessagePlayer
+                key={a.id}
+                url={a.url}
+                durationSecs={a.duration_secs}
+              />
+            )
+          }
 
           if (isImage) {
             return (

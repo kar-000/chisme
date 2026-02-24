@@ -8,11 +8,13 @@ import AttachmentPreview from './AttachmentPreview'
 import GifPicker from './GifPicker'
 import EmojiPicker from './EmojiPicker'
 import CreatePollModal from '../Modals/CreatePollModal'
+import VoiceRecordingBar from './VoiceRecordingBar'
+import useVoiceRecorder from '../../hooks/useVoiceRecorder'
 
 const TYPING_THROTTLE = 2000
 const MAX_CHARS = 2000
 
-const ACCEPTED = 'image/*,video/mp4,video/webm,application/pdf,application/zip,text/plain'
+const ACCEPTED = 'image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,audio/mp4,application/pdf,application/zip,text/plain'
 
 /** Find an active @mention trigger at the cursor — returns { query, triggerStart } or null. */
 function detectMention(text, cursorPos) {
@@ -230,6 +232,25 @@ export default function MessageInput({ onTyping }) {
     }
   }, [addPendingAttachment, updateAttachmentProgress, finalizeAttachment, setAttachmentError])
 
+  const uploadVoice = useCallback(async (blob, durationSecs) => {
+    const ext = blob.type.includes('ogg') ? 'ogg' : 'webm'
+    const file = new File([blob], `voice-message.${ext}`, { type: blob.type })
+    const tempId = addPendingAttachment(file)
+    try {
+      const { data } = await uploadFile(
+        file,
+        (pct) => updateAttachmentProgress(tempId, pct),
+        durationSecs,
+      )
+      finalizeAttachment(tempId, data)
+    } catch (err) {
+      const msg = err?.response?.data?.detail ?? 'Voice upload failed'
+      setAttachmentError(tempId, msg)
+    }
+  }, [addPendingAttachment, updateAttachmentProgress, finalizeAttachment, setAttachmentError])
+
+  const voiceRecorder = useVoiceRecorder(uploadVoice)
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files ?? [])
     if (files.length) uploadFiles(files)
@@ -318,7 +339,14 @@ export default function MessageInput({ onTyping }) {
         </div>
       )}
 
-      <div className="px-4 py-3 flex gap-2 items-end relative">
+      {voiceRecorder.state === 'recording' ? (
+        <VoiceRecordingBar
+          onStop={voiceRecorder.stopRecording}
+          onCancel={voiceRecorder.cancelRecording}
+        />
+      ) : null}
+
+      <div className={`px-4 py-3 flex gap-2 items-end relative${voiceRecorder.state === 'recording' ? ' hidden' : ''}`}>
         {/* Mention autocomplete popup */}
         {mention && mentionUsers.length > 0 && (
           <div className="absolute bottom-full left-4 right-4 mb-1 bg-[var(--bg-primary)]
@@ -451,6 +479,20 @@ export default function MessageInput({ onTyping }) {
               >
                 😊
               </button>
+              {/* Mic */}
+              <button
+                onClick={() => { voiceRecorder.startRecording(); setShowExtras(false) }}
+                className="
+                  h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--text-error)] hover:border-[var(--text-error)]
+                  transition-all duration-200 text-base
+                "
+                title="Voice message"
+                data-testid="mic-button-mobile"
+              >
+                🎤
+              </button>
             </div>
           )}
         </div>
@@ -503,6 +545,22 @@ export default function MessageInput({ onTyping }) {
           data-testid="emoji-button"
         >
           😊
+        </button>
+
+        {/* Mic button — desktop only */}
+        <button
+          onClick={voiceRecorder.startRecording}
+          className="
+            hidden sm:flex h-9 w-9 items-center justify-center rounded flex-shrink-0
+            border border-[var(--border)] text-[var(--text-muted)]
+            hover:text-[var(--text-error)] hover:border-[var(--text-error)]
+            hover:shadow-[0_0_8px_rgba(220,80,80,0.2)]
+            transition-all duration-200 text-base
+          "
+          title="Voice message"
+          data-testid="mic-button"
+        >
+          🎤
         </button>
 
         {/* Formatting hints button — desktop only */}
