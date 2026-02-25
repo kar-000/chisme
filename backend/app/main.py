@@ -50,10 +50,15 @@ configure_wal_for_replication()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    reminder_scheduler.start()
+    # Don't start the scheduler in test runs — AsyncIOScheduler captures the
+    # event loop, which TestClient recreates per-test, causing "Event loop is
+    # closed" errors on the second and subsequent tests.
+    if not os.getenv("PYTEST_CURRENT_TEST") and not reminder_scheduler.running:
+        reminder_scheduler.start()
     await init_redis()
     yield
-    reminder_scheduler.shutdown(wait=False)
+    if reminder_scheduler.running:
+        reminder_scheduler.shutdown(wait=False)
     await close_redis()
 
 
