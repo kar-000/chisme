@@ -1,7 +1,7 @@
 import useDMStore from '../../store/dmStore'
 
 export default function DMList({ onSelect }) {
-  const { dms, activeDmId } = useDMStore()
+  const { dms, activeDmId, unreadDmCounts } = useDMStore()
 
   if (!dms.length) {
     return (
@@ -19,6 +19,7 @@ export default function DMList({ onSelect }) {
             onClick={() => onSelect?.(dm.id)}
             className={`
               w-full text-left px-3 py-1.5 rounded text-sm font-mono truncate transition-colors duration-150
+              flex items-center justify-between
               ${activeDmId === dm.id
                 ? 'bg-[var(--bg-active)] text-[var(--text-primary)] shadow-glow-sm'
                 : 'text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
@@ -26,8 +27,15 @@ export default function DMList({ onSelect }) {
             `}
             data-testid={`dm-item-${dm.id}`}
           >
-            <span className="mr-1.5 opacity-60">@</span>
-            {dm.other_user?.username}
+            <span className="truncate">
+              <span className="mr-1.5 opacity-60">@</span>
+              {dm.other_user?.username}
+            </span>
+            {unreadDmCounts[dm.id] > 0 && (
+              <span className="ml-2 min-w-[1.1rem] h-[1.1rem] flex items-center justify-center rounded-full bg-[var(--accent)] text-white text-[10px] font-bold shrink-0">
+                {unreadDmCounts[dm.id] > 99 ? '99+' : unreadDmCounts[dm.id]}
+              </span>
+            )}
           </button>
         </li>
       ))}

@@ -7,6 +7,7 @@ const useDMStore = create((set, get) => ({
   dmMessages: [],        // messages for active DM
   dmMessagesTotal: 0,
   loadingDMMessages: false,
+  unreadDmCounts: {},    // { [dmId]: number }
 
   /* ── DM Channels ──────────────────────────────────────────────── */
   fetchDMs: async () => {
@@ -18,11 +19,14 @@ const useDMStore = create((set, get) => ({
     const { data } = await getOrCreateDM(otherUserId)
     set((s) => {
       const exists = s.dms.find((d) => d.id === data.id)
+      const counts = { ...s.unreadDmCounts }
+      delete counts[data.id]
       return {
         dms: exists ? s.dms : [data, ...s.dms],
         activeDmId: data.id,
         dmMessages: [],
         dmMessagesTotal: 0,
+        unreadDmCounts: counts,
       }
     })
     get().fetchDMMessages(data.id)
@@ -30,11 +34,20 @@ const useDMStore = create((set, get) => ({
   },
 
   selectDM: (dmId) => {
-    set({ activeDmId: dmId, dmMessages: [], dmMessagesTotal: 0 })
+    set((s) => {
+      const counts = { ...s.unreadDmCounts }
+      delete counts[dmId]
+      return { activeDmId: dmId, dmMessages: [], dmMessagesTotal: 0, unreadDmCounts: counts }
+    })
     get().fetchDMMessages(dmId)
   },
 
   closeDM: () => set({ activeDmId: null, dmMessages: [], dmMessagesTotal: 0 }),
+
+  incrementDmUnread: (dmId) =>
+    set((s) => ({
+      unreadDmCounts: { ...s.unreadDmCounts, [dmId]: (s.unreadDmCounts[dmId] ?? 0) + 1 },
+    })),
 
   /* ── DM Messages ──────────────────────────────────────────────── */
   fetchDMMessages: async (dmId) => {

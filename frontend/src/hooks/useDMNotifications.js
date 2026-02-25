@@ -18,6 +18,7 @@ export function useDMNotifications() {
   const dms = useDMStore((s) => s.dms)
   const activeDmId = useDMStore((s) => s.activeDmId)
   const appendDMMessage = useDMStore((s) => s.appendDMMessage)
+  const incrementDmUnread = useDMStore((s) => s.incrementDmUnread)
   // Map of dm_id -> WebSocket
   const wsRefs = useRef({})
 
@@ -42,6 +43,7 @@ export function useDMNotifications() {
           const data = JSON.parse(ev.data)
           if (data.type === 'message.new' && data.message?.user_id !== me.id) {
             appendDMMessage(data.message)
+            incrementDmUnread(data.message.dm_channel_id)
             showNotification(`DM from ${data.message?.user?.username}`, {
               body: data.message?.content,
               tag: `dm-${data.message?.id}`,
@@ -62,7 +64,7 @@ export function useDMNotifications() {
         delete wsRefs.current[id]
       }
     })
-  }, [token, me, dms, activeDmId, appendDMMessage])
+  }, [token, me, dms, activeDmId, appendDMMessage, incrementDmUnread])
 
   // Close all connections on logout / unmount
   useEffect(() => {
