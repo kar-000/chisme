@@ -20,11 +20,14 @@ async def upload_file(
 ) -> AttachmentResponse:
     """Upload a file and get back an attachment ID to attach to a message."""
 
-    # Validate MIME type before reading the body
-    if file.content_type not in settings.ALLOWED_MIME_TYPES:
+    # Validate MIME type before reading the body.
+    # Strip codec/parameter suffixes (e.g. "audio/webm;codecs=opus" → "audio/webm")
+    # so the allowlist doesn't need an entry for every codec variant.
+    base_mime = (file.content_type or "").split(";")[0].strip()
+    if base_mime not in settings.ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"File type '{file.content_type}' is not allowed",
+            detail=f"File type '{base_mime}' is not allowed",
         )
 
     content = await file.read()

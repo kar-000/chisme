@@ -36,6 +36,9 @@ class Settings(BaseSettings):
         "image/webp",
         "video/mp4",
         "video/webm",
+        "audio/webm",  # Chrome/Edge voice messages (codecs param stripped before check)
+        "audio/ogg",  # Firefox voice messages
+        "audio/mp4",  # Safari voice messages
         "application/pdf",
         "application/zip",
         "text/plain",
