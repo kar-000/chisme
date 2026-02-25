@@ -97,9 +97,13 @@ export function useWebSocket(serverId, token) {
               : null
 
             if ((isMentioned || matchedKeyword) && !isInQuietHours(quietHours)) {
+              const sender = data.message?.user?.username ?? ''
+              const loc = data.channel_name && data.server_name
+                ? `#${data.channel_name} · ${data.server_name}`
+                : data.channel_name ? `#${data.channel_name}` : ''
               const title = isMentioned
-                ? `@${me.username} mentioned by ${data.message?.user?.username}`
-                : `Keyword "${matchedKeyword.keyword}" in message from ${data.message?.user?.username}`
+                ? `${sender} mentioned you${loc ? ` in ${loc}` : ''}`
+                : `Keyword "${matchedKeyword.keyword}" in ${loc || 'a channel'} from ${sender}`
               showNotification(title, {
                 body: content,
                 tag: `mention-${data.message?.id}`,

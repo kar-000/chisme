@@ -406,6 +406,8 @@ async def send_message(
             {
                 "type": "message.new",
                 "channel_id": channel_id,
+                "channel_name": channel.name,
+                "server_name": membership.server.name,
                 "message": response.model_dump(mode="json"),
             },
         )
@@ -430,7 +432,7 @@ async def send_message(
                 if target.id not in connected_users:
                     send_push_to_user(
                         user_id=target.id,
-                        title=(f"@{current_user.username} mentioned you in #{channel.name}"),
+                        title=f"@{current_user.username} mentioned you in #{channel.name} · {membership.server.name}",
                         body=message_in.content[:100],
                         url=f"/?channel={channel_id}",
                         tag=f"mention-{message.id}",
@@ -457,7 +459,7 @@ async def send_message(
             if uid not in connected_users:
                 send_push_to_user(
                     user_id=uid,
-                    title=f"{current_user.username} mentioned a keyword in #{channel.name}",
+                    title=f"{current_user.username} mentioned a keyword in #{channel.name} · {membership.server.name}",
                     body=message_in.content[:100],
                     url=f"/?channel={channel_id}",
                     tag=f"keyword-{message.id}-{uid}",
