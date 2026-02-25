@@ -21,7 +21,10 @@ export async function registerPushIfAvailable() {
   try {
     const { data } = await getVapidPublicKey()
     const vapidPublicKey = data?.key
-    if (!vapidPublicKey) return // VAPID not configured on server
+    if (!vapidPublicKey) {
+      console.warn('[Push] VAPID public key not configured on server — push subscriptions disabled')
+      return
+    }
 
     const registration = await navigator.serviceWorker.ready
     const existing = await registration.pushManager.getSubscription()

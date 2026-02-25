@@ -228,6 +228,7 @@ export function useWebSocket(serverId, token) {
   useEffect(() => {
     mountedRef.current = true
     attemptsRef.current = 0
+    setReconnecting(false)
     connect()
     return () => {
       mountedRef.current = false
