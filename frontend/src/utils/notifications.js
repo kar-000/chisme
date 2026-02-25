@@ -23,9 +23,31 @@ export async function requestNotificationPermission() {
   return false
 }
 
-export function showNotification(title, { body, tag, onClick } = {}) {
+export async function showNotification(title, { body, tag, onClick } = {}) {
   if (Notification.permission !== 'granted') return
 
+  // Prefer SW registration.showNotification() — required for reliable PWA
+  // notifications. new Notification() is silently blocked by Chrome when the
+  // page is not in the foreground or when running as an installed PWA.
+  if ('serviceWorker' in navigator) {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (reg) {
+        await reg.showNotification(title, {
+          body,
+          tag,
+          icon: '/icons/icon-192.png',
+          badge: '/icons/badge-72.png',
+          renotify: false,
+        })
+        return
+      }
+    } catch {
+      // Fall through to legacy path
+    }
+  }
+
+  // Fallback for dev environments without a service worker
   const n = new Notification(title, {
     body,
     tag,
