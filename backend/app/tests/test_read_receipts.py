@@ -99,10 +99,14 @@ class TestMarkChannelRead:
 
     def test_mark_read_clears_unread_count(self, client: TestClient):
         """After marking read, the channel's unread_count drops to 0."""
+        # h is the reader; h2 sends messages (own messages never count as unread)
         h = auth_headers(client, username="rr_clear1", email="rr_clear1@x.com")
+        data2 = _register(client, "rr_clear2", "rr_clear2@x.com")
+        h2 = {"Authorization": f"Bearer {data2['access_token']}"}
+
         ch = _make_channel(client, h, "rr-clear1")
-        _send(client, h, ch, "msg 1")
-        _send(client, h, ch, "msg 2")
+        _send(client, h2, ch, "msg 1")
+        _send(client, h2, ch, "msg 2")
 
         # Verify unread first
         before = client.get(f"/api/servers/{ch['server_id']}/channels", headers=h)
@@ -119,13 +123,17 @@ class TestMarkChannelRead:
 
     def test_new_messages_after_read_are_unread(self, client: TestClient):
         """Messages sent after marking read count as unread again."""
+        # h is the reader; h2 sends messages (own messages never count as unread)
         h = auth_headers(client, username="rr_new1", email="rr_new1@x.com")
+        data2 = _register(client, "rr_new2", "rr_new2@x.com")
+        h2 = {"Authorization": f"Bearer {data2['access_token']}"}
+
         ch = _make_channel(client, h, "rr-new1")
-        _send(client, h, ch, "old message")
+        _send(client, h2, ch, "old message")
         client.post(f"/api/servers/{ch['server_id']}/channels/{ch['id']}/read", headers=h)
 
-        _send(client, h, ch, "new message 1")
-        _send(client, h, ch, "new message 2")
+        _send(client, h2, ch, "new message 1")
+        _send(client, h2, ch, "new message 2")
 
         resp = client.get(f"/api/servers/{ch['server_id']}/channels", headers=h)
         item = next(c for c in resp.json() if c["id"] == ch["id"])
