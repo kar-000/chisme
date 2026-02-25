@@ -25,6 +25,11 @@ router = APIRouter(prefix="/search", tags=["search"])
 _MAX_LIMIT = 100
 
 
+def _escape_like(s: str) -> str:
+    """Escape SQL LIKE special characters so user input is treated as a literal string."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class SearchResultUser(BaseModel):
     id: int
     username: str
@@ -79,13 +84,13 @@ async def search_messages(
     )
 
     if q.strip():
-        query = query.filter(Message.content.ilike(f"%{q.strip()}%"))
+        query = query.filter(Message.content.ilike(f"%{_escape_like(q.strip())}%", escape="\\"))
 
     if channel_id is not None:
         query = query.filter(Message.channel_id == channel_id)
 
     if from_user:
-        query = query.filter(User.username.ilike(f"%{from_user}%"))
+        query = query.filter(User.username.ilike(f"%{_escape_like(from_user)}%", escape="\\"))
 
     if after is not None:
         query = query.filter(Message.created_at >= after)
