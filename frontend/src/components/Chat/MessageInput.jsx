@@ -61,6 +61,7 @@ export default function MessageInput({ onTyping }) {
   const emojiButtonRef = useRef(null)
   const fmtHintsRef = useRef(null)
   const extrasRef = useRef(null)
+  const extrasPopoverRef = useRef(null)
   // Tracks the last known cursor position so emoji can be inserted at the right
   // spot even after the textarea loses focus when the picker opens.
   const selectionRef = useRef({ start: 0, end: 0 })
@@ -85,7 +86,9 @@ export default function MessageInput({ onTyping }) {
   useEffect(() => {
     if (!showExtras) return
     const handler = (e) => {
-      if (extrasRef.current && !extrasRef.current.contains(e.target)) {
+      const inButton = extrasRef.current?.contains(e.target)
+      const inPopover = extrasPopoverRef.current?.contains(e.target)
+      if (!inButton && !inPopover) {
         setShowExtras(false)
       }
     }
@@ -416,7 +419,7 @@ export default function MessageInput({ onTyping }) {
         </button>
 
         {/* + overflow button — mobile only; reveals GIF / Poll / ? / Emoji in a popover */}
-        <div ref={extrasRef} className="relative flex-shrink-0 sm:hidden">
+        <div ref={extrasRef} className="flex-shrink-0 sm:hidden">
           <button
             type="button"
             onClick={() => setShowExtras((v) => !v)}
@@ -432,10 +435,12 @@ export default function MessageInput({ onTyping }) {
           >
             +
           </button>
-          {showExtras && (
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1.5 p-2
-                            bg-[var(--bg-primary)] border border-[var(--border-glow)] rounded
-                            shadow-[0_0_12px_rgba(0,206,209,0.2)] z-30">
+        </div>
+        {/* Extras popover — rendered in the outer relative container so left-1/2 centers on the full input bar */}
+        {showExtras && (
+          <div ref={extrasPopoverRef} className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1.5 p-2
+                          bg-[var(--bg-primary)] border border-[var(--border-glow)] rounded
+                          shadow-[0_0_12px_rgba(0,206,209,0.2)] z-30 sm:hidden">
               {/* GIF */}
               <button
                 onClick={() => { setShowGifPicker((v) => !v); setShowExtras(false) }}
@@ -495,7 +500,6 @@ export default function MessageInput({ onTyping }) {
               </button>
             </div>
           )}
-        </div>
 
         {/* GIF button — desktop only */}
         <button
@@ -562,6 +566,7 @@ export default function MessageInput({ onTyping }) {
         >
           🎤
         </button>
+
 
         {/* Formatting hints button — desktop only */}
         <div ref={fmtHintsRef} className="relative flex-shrink-0 hidden sm:block">
