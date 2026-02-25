@@ -45,6 +45,58 @@ class TestUploadEndpoint:
         )
         assert resp.status_code == 415
 
+    def test_mime_spoof_exe_as_jpeg_rejected(self, client: TestClient):
+        """PE/EXE bytes with Content-Type: image/jpeg must be rejected (magic mismatch)."""
+        headers = auth_headers(client)
+        exe_bytes = b"MZ\x90\x00" + b"\x00" * 60  # Windows PE magic bytes
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("photo.jpg", io.BytesIO(exe_bytes), "image/jpeg")},
+            headers=headers,
+        )
+        assert resp.status_code == 415
+
+    def test_mime_spoof_exe_as_png_rejected(self, client: TestClient):
+        """PE bytes with Content-Type: image/png must be rejected."""
+        headers = auth_headers(client)
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("image.png", io.BytesIO(b"MZ\x90\x00" + b"\x00" * 60), "image/png")},
+            headers=headers,
+        )
+        assert resp.status_code == 415
+
+    def test_mime_spoof_html_as_gif_rejected(self, client: TestClient):
+        """HTML bytes with Content-Type: image/gif must be rejected."""
+        headers = auth_headers(client)
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("img.gif", io.BytesIO(b"<html><script>alert(1)</script>"), "image/gif")},
+            headers=headers,
+        )
+        assert resp.status_code == 415
+
+    def test_valid_jpeg_magic_bytes_accepted(self, client: TestClient):
+        """Real JPEG magic bytes (FF D8 FF) with image/jpeg content type is accepted."""
+        headers = auth_headers(client)
+        jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01" + b"\x00" * 20
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("photo.jpg", io.BytesIO(jpeg_bytes), "image/jpeg")},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
+    def test_non_image_type_not_magic_checked(self, client: TestClient):
+        """Non-image types (PDF, ZIP) are not magic-byte checked — declaration is trusted."""
+        headers = auth_headers(client)
+        resp = client.post(
+            "/api/upload",
+            files={"file": ("doc.pdf", io.BytesIO(b"%PDF-fake"), "application/pdf")},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+
     def test_upload_oversized_file_returns_413(self, client: TestClient, monkeypatch):
         import app.api.uploads as uploads_module
 

@@ -141,3 +141,41 @@ class TestDMWebSocket:
             with client.websocket_connect(f"/ws/dm/{dm_id}") as ws:
                 ws.send_json({"type": "auth", "token": "garbage"})
                 ws.receive_json()
+
+
+# ---------------------------------------------------------------------------
+# Malformed JSON resilience
+# ---------------------------------------------------------------------------
+
+
+class TestMalformedJsonResilience:
+    def test_garbage_auth_message_closes_connection(self, client: TestClient):
+        """Non-JSON bytes as the first (auth) message cause the server to close the socket."""
+        data = _register(client, "junk_auth1", "junk_auth1@example.com")
+        token = data["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        server_id = get_server_id(client, headers)
+
+        with pytest.raises(Exception):
+            with client.websocket_connect(f"/ws/server/{server_id}") as ws:
+                ws.send_text("{{{{not valid json at all")
+                ws.receive_json()  # server closes → raises
+
+    def test_garbage_payload_after_auth_is_ignored(self, client: TestClient):
+        """Non-JSON text sent after a successful auth is silently ignored and the connection stays open."""
+        data = _register(client, "junk_loop1", "junk_loop1@example.com")
+        token = data["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        server_id = get_server_id(client, headers)
+
+        with client.websocket_connect(f"/ws/server/{server_id}") as ws:
+            ws.send_json({"type": "auth", "token": token})
+            ws.receive_json()  # user.joined
+            ws.receive_json()  # presence.changed
+
+            # Garbage payload — server must continue silently
+            ws.send_text("{{{{not valid json{{{{")
+
+            # Connection still alive: send a valid no-op event
+            ws.send_json({"type": "user.typing", "channel_id": 1})
+            # No exception means the connection survived the malformed message

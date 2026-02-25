@@ -11,6 +11,27 @@ from app.storage import generate_thumbnail, save_upload
 
 router = APIRouter(prefix="/upload", tags=["uploads"])
 
+# Magic byte signatures for image types. Clients control the Content-Type header,
+# so we verify the actual file bytes match the declared MIME for images, which are
+# served publicly and are the primary target of MIME-spoof attacks.
+_IMAGE_MAGIC: dict[str, tuple[bytes, ...]] = {
+    "image/jpeg": (b"\xff\xd8\xff",),
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    "image/gif": (b"GIF87a", b"GIF89a"),
+}
+
+
+def _image_magic_valid(mime: str, content: bytes) -> bool:
+    """Return True if content magic bytes match the declared image MIME type."""
+    if not mime.startswith("image/"):
+        return True
+    if mime == "image/webp":
+        return len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP"
+    magic_options = _IMAGE_MAGIC.get(mime)
+    if magic_options is None:
+        return True  # unknown image subtype — allow
+    return any(content[: len(m)] == m for m in magic_options)
+
 
 @router.post("", response_model=AttachmentResponse)
 async def upload_file(
@@ -37,6 +58,14 @@ async def upload_file(
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File exceeds the {settings.MAX_UPLOAD_SIZE // (1024 * 1024)} MB limit",
+        )
+
+    # Verify magic bytes match the declared MIME for image types.
+    # Prevents spoofed Content-Type attacks (e.g. PE binary uploaded as image/jpeg).
+    if not _image_magic_valid(base_mime, content):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"File content does not match declared type '{base_mime}'",
         )
 
     stored_filename, full_path = save_upload(
