@@ -20,6 +20,7 @@ export function useWebSocketDM(dmId, token) {
     wsRef.current = ws
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) { ws.close(); return }
       ws.send(JSON.stringify({ type: 'auth', token }))
     }
 
@@ -43,6 +44,7 @@ export function useWebSocketDM(dmId, token) {
     }
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return
       reconnectTimer.current = setTimeout(connect, RECONNECT_DELAY)
     }
 

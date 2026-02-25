@@ -39,7 +39,9 @@ export function useWebSocket(serverId, token) {
     wsRef.current = ws
 
     ws.onopen = () => {
-      if (!mountedRef.current) return
+      // Guard against stale connections: if this WS has been superseded by a
+      // newer connect() call, close it immediately rather than authenticating.
+      if (!mountedRef.current || wsRef.current !== ws) { ws.close(); return }
       ws.send(JSON.stringify({ type: 'auth', token }))
       setConnected(true)
       setReconnecting(false)
@@ -55,7 +57,7 @@ export function useWebSocket(serverId, token) {
     }
 
     ws.onmessage = (ev) => {
-      if (!mountedRef.current) return
+      if (!mountedRef.current || wsRef.current !== ws) return
       let data
       try { data = JSON.parse(ev.data) } catch { return }
 
@@ -185,7 +187,7 @@ export function useWebSocket(serverId, token) {
     }
 
     ws.onclose = (ev) => {
-      if (!mountedRef.current) return
+      if (!mountedRef.current || wsRef.current !== ws) return
       setConnected(false)
       if (ev?.code === 1006 || ev?.code === 1001) {
         setFailoverDetected(true)
