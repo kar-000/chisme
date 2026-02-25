@@ -4,11 +4,23 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 
 
+def _strip_control_chars(v: str) -> str:
+    """Reject names that contain ASCII control characters (e.g. \\r, \\n, NUL)."""
+    if any(ord(c) < 0x20 for c in v):
+        raise ValueError("Name must not contain control characters")
+    return v
+
+
 class ServerCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     slug: str = Field(..., min_length=3, max_length=100)
     description: str | None = Field(None, max_length=500)
     is_public: bool = False
+
+    @field_validator("name")
+    @classmethod
+    def name_no_control_chars(cls, v: str) -> str:
+        return _strip_control_chars(v)
 
     @field_validator("slug")
     @classmethod
@@ -22,6 +34,14 @@ class ServerCreate(BaseModel):
 
 class ServerUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def name_no_control_chars(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _strip_control_chars(v)
+        return v
+
     description: str | None = Field(None, max_length=500)
     icon_url: str | None = Field(None, max_length=500)
     is_public: bool | None = None

@@ -36,7 +36,9 @@ def notify_server_created(
         f"  Owner:  {owner_username}\n"
     )
     msg = MIMEText(body)
-    msg["Subject"] = f"[Chisme] New server created: {server_name}"
+    # Strip CRLF from header values — defense-in-depth against SMTP header injection
+    safe_name = server_name.replace("\r", "").replace("\n", "")
+    msg["Subject"] = f"[Chisme] New server created: {safe_name}"
     msg["From"] = settings.SMTP_FROM_EMAIL or f"chisme@{settings.SERVER_DOMAIN}"
     msg["To"] = settings.SMTP_ADMIN_EMAIL
 
