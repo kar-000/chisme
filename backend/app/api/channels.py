@@ -56,6 +56,7 @@ def _unread_counts(channel_ids: list[int], user_id: int, db: Session) -> dict[in
         .filter(
             Message.channel_id.in_(channel_ids),
             Message.is_deleted == False,  # noqa: E712
+            Message.user_id != user_id,  # own messages never count as unread
             or_(
                 ReadReceipt.last_read_message_id == None,  # noqa: E711
                 Message.id > ReadReceipt.last_read_message_id,
