@@ -250,6 +250,63 @@ class TestVoiceSignalingRelay:
                 sentinel = ws2.receive_json()
                 assert sentinel["type"] == "voice.user_left"
 
+    def test_offer_not_relayed_to_third_party(self, client: TestClient):
+        """voice.offer from B targeting C is NOT delivered to A.
+
+        Three users (A, B, C) all join voice. B sends an offer to C.
+        A must not receive the offer — signaling is point-to-point.
+        Sentinel: B then leaves; A's next message must be voice.user_left, not voice.offer.
+        """
+        dA = _register(client, "isol_a", "isol_a@x.com")
+        dB = _register(client, "isol_b", "isol_b@x.com")
+        dC = _register(client, "isol_c", "isol_c@x.com")
+
+        with client.websocket_connect("/ws/voice") as wsA:
+            _auth_voice_ws(wsA, dA["access_token"])
+
+            with client.websocket_connect("/ws/voice") as wsB:
+                _auth_voice_ws(wsB, dB["access_token"])
+
+                with client.websocket_connect("/ws/voice") as wsC:
+                    _auth_voice_ws(wsC, dC["access_token"])
+
+                    # All three join voice
+                    wsA.send_json({"type": "voice.join", "muted": False, "video": False})
+                    wsA.receive_json()  # A's own voice.user_joined
+                    wsB.receive_json()  # B sees A join
+                    wsC.receive_json()  # C sees A join
+
+                    wsB.send_json({"type": "voice.join", "muted": False, "video": False})
+                    wsA.receive_json()  # A sees B join
+                    wsB.receive_json()  # B's own voice.user_joined
+                    wsC.receive_json()  # C sees B join
+
+                    wsC.send_json({"type": "voice.join", "muted": False, "video": False})
+                    wsA.receive_json()  # A sees C join
+                    wsB.receive_json()  # B sees C join
+                    wsC.receive_json()  # C's own voice.user_joined
+
+                    # B sends an offer specifically to C
+                    wsB.send_json(
+                        {
+                            "type": "voice.offer",
+                            "target_user_id": dC["user"]["id"],
+                            "sdp": {"type": "offer", "sdp": "fake-sdp"},
+                        }
+                    )
+
+                    # C receives the offer (targeted delivery confirmed)
+                    event_c = wsC.receive_json()
+                    assert event_c["type"] == "voice.offer"
+                    assert event_c["from_user_id"] == dB["user"]["id"]
+
+                    # Sentinel: B leaves — A's next event must be voice.user_left,
+                    # proving A never received the B→C offer
+                    wsB.send_json({"type": "voice.leave"})
+                    sentinel_a = wsA.receive_json()
+                    assert sentinel_a["type"] == "voice.user_left"
+                    assert sentinel_a["user_id"] == dB["user"]["id"]
+
     def test_offer_with_string_target_id_is_dropped(self, client: TestClient):
         """voice.offer with a non-integer target_user_id is silently dropped."""
         d1, d2 = self._two_users(client, "strid")

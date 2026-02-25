@@ -1,6 +1,9 @@
 """End-to-end flow tests — full user journeys."""
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
 
 from app.tests.conftest import register_user
 
@@ -63,3 +66,18 @@ class TestFullChatFlow:
         health = client.get("/health")
         assert health.status_code == 200
         assert health.json()["status"] == "healthy"
+
+
+class TestHealthCheck:
+    def test_health_returns_200_when_db_ok(self, client: TestClient):
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "healthy"
+
+    def test_health_returns_503_when_db_down(self, client: TestClient):
+        """Health endpoint must return 503 (not 200) when the DB is unreachable."""
+        with patch("app.api.health.text", side_effect=OperationalError("SELECT 1", {}, Exception("conn refused"))):
+            resp = client.get("/health")
+        assert resp.status_code == 503
+        data = resp.json()
+        assert data["status"] == "unhealthy"

@@ -15,6 +15,7 @@ os.environ.setdefault("TENOR_API_KEY", "test-gif-api-key")  # prevent early-retu
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy import event as sa_event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -29,6 +30,17 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+
+
+# Enable FK enforcement so cascade-delete behaviour mirrors production PostgreSQL.
+# SQLite has FK support but disables it by default.
+@sa_event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, _record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
