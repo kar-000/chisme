@@ -10,6 +10,7 @@ import os
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test-secret-key-min-32-chars-long!!"
 os.environ["ALGORITHM"] = "HS256"
+os.environ.setdefault("TENOR_API_KEY", "test-gif-api-key")  # prevent early-return in gif tests
 
 import pytest
 from fastapi.testclient import TestClient

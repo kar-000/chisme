@@ -13,17 +13,10 @@ import twemoji from '@twemoji/api'
 const TWEMOJI_SVG_BASE = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@17.0.2/assets/svg/'
 
 export default function TwemojiEmoji({ emoji, size = '1.2em', className = '' }) {
-  const codepoint = twemoji.convert.toCodePoint(emoji)
+  // jdecked/twemoji SVG filenames never include the FE0F variation selector.
+  // Strip it upfront so we don't generate a guaranteed-404 first request.
+  const codepoint = twemoji.convert.toCodePoint(emoji).replace(/-fe0f/g, '')
   const src = `${TWEMOJI_SVG_BASE}${codepoint}.svg`
-
-  // Some emojis (e.g. ❤️) get a codepoint with a `-fe0f` variation selector
-  // that Twemoji CDN files don't include. Fall back to the base codepoint.
-  const handleError = (e) => {
-    const current = e.currentTarget.src
-    if (current.includes('-fe0f')) {
-      e.currentTarget.src = current.replace(/-fe0f/g, '')
-    }
-  }
 
   return (
     <img
@@ -37,7 +30,6 @@ export default function TwemojiEmoji({ emoji, size = '1.2em', className = '' }) 
         verticalAlign: '-0.15em',
       }}
       draggable={false}
-      onError={handleError}
     />
   )
 }
