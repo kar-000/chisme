@@ -3,6 +3,7 @@ import useAuthStore from './store/authStore'
 import useChatStore from './store/chatStore'
 import useServerStore from './store/serverStore'
 import useDMStore from './store/dmStore'
+import useBookmarkStore from './store/bookmarkStore'
 import AuthPage from './components/Auth/AuthPage'
 import Sidebar from './components/Layout/Sidebar'
 import MessageFeed from './components/Chat/MessageFeed'
@@ -15,6 +16,7 @@ import { ServerList } from './components/Server/ServerList'
 import { InviteModal } from './components/Server/InviteModal'
 import { InviteLandingPage } from './pages/InviteLandingPage'
 import { OperatorDashboard } from './pages/OperatorDashboard'
+import PersonalPanel from './components/Panels/PersonalPanel'
 import { useFaviconBadge } from './hooks/useFaviconBadge'
 import { useInviteModal } from './hooks/useInviteModal'
 import { useVoiceWebSocket } from './hooks/useVoiceWebSocket'
@@ -28,9 +30,11 @@ function ChatLayout() {
   const { token, user } = useAuthStore()
   const fetchServers = useServerStore((s) => s.fetchServers)
   const activeDmId = useDMStore((s) => s.activeDmId)
+  const fetchBookmarks = useBookmarkStore((s) => s.fetchBookmarks)
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [bookmarksOpen, setBookmarksOpen] = useState(false)
 
   const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token)
   useDMNotifications()
@@ -44,6 +48,10 @@ function ChatLayout() {
   useEffect(() => {
     fetchServers()
   }, [fetchServers])
+
+  useEffect(() => {
+    if (token) fetchBookmarks()
+  }, [token, fetchBookmarks])
 
   // Check for a pending invite code stored before a login redirect
   useEffect(() => {
@@ -76,8 +84,10 @@ function ChatLayout() {
         className="flex overflow-hidden bg-[var(--bg-primary)]"
         style={{ height: '100dvh' }}
       >
-        {/* Server list column — leftmost, 64px wide */}
-        <ServerList />
+        {/* Server list column — leftmost, 64px wide; hidden on mobile when in chat view */}
+        <div className={!sidebarOpen ? 'hidden md:block' : ''}>
+          <ServerList />
+        </div>
 
         {/* Channel sidebar */}
         <Sidebar
@@ -94,7 +104,7 @@ function ChatLayout() {
             {activeDmId ? (
               <DMView onBack={handleBack} />
             ) : (
-              <MessageFeed onBack={handleBack} />
+              <MessageFeed onBack={handleBack} onBookmarksOpen={() => setBookmarksOpen(true)} />
             )}
           </ErrorBoundary>
           <VoiceControls
@@ -107,6 +117,19 @@ function ChatLayout() {
         {searchOpen && <MessageSearch onClose={() => setSearchOpen(false)} />}
         {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
         {invite.isOpen && <InviteModal onClose={invite.close} />}
+        {bookmarksOpen && (
+          <PersonalPanel
+            onClose={() => setBookmarksOpen(false)}
+            onGoToMessage={(bookmark) => {
+              const channelId = bookmark.message?.channel_id
+              if (channelId) {
+                const serverId = useServerStore.getState().activeServerId
+                useChatStore.getState().selectChannel(serverId, channelId)
+                setBookmarksOpen(false)
+              }
+            }}
+          />
+        )}
       </div>
     </ErrorBoundary>
   )

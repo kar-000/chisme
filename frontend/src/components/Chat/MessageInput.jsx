@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import useChatStore from '../../store/chatStore'
 import useServerStore from '../../store/serverStore'
 import { uploadFile } from '../../services/uploads'
@@ -7,11 +7,14 @@ import { getChannelMembers } from '../../services/channels'
 import AttachmentPreview from './AttachmentPreview'
 import GifPicker from './GifPicker'
 import EmojiPicker from './EmojiPicker'
+import CreatePollModal from '../Modals/CreatePollModal'
+import VoiceRecordingBar from './VoiceRecordingBar'
+import useVoiceRecorder from '../../hooks/useVoiceRecorder'
 
 const TYPING_THROTTLE = 2000
 const MAX_CHARS = 2000
 
-const ACCEPTED = 'image/*,video/mp4,video/webm,application/pdf,application/zip,text/plain'
+const ACCEPTED = 'image/*,video/mp4,video/webm,audio/webm,audio/ogg,audio/mpeg,audio/mp4,application/pdf,application/zip,text/plain'
 
 /** Find an active @mention trigger at the cursor — returns { query, triggerStart } or null. */
 function detectMention(text, cursorPos) {
@@ -29,8 +32,10 @@ export default function MessageInput({ onTyping }) {
   const [dragOver, setDragOver] = useState(false)
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [showPollModal, setShowPollModal] = useState(false)
   const [sendError, setSendError] = useState('')
   const [showFmtHints, setShowFmtHints] = useState(false)
+  const [showExtras, setShowExtras] = useState(false)
 
   // Mention autocomplete state
   const [mention, setMention] = useState(null) // { query, triggerStart } | null
@@ -54,9 +59,46 @@ export default function MessageInput({ onTyping }) {
   const textareaRef = useRef(null)
   const fileInputRef = useRef(null)
   const emojiButtonRef = useRef(null)
+  const fmtHintsRef = useRef(null)
+  const extrasRef = useRef(null)
+  const extrasPopoverRef = useRef(null)
   // Tracks the last known cursor position so emoji can be inserted at the right
   // spot even after the textarea loses focus when the picker opens.
   const selectionRef = useRef({ start: 0, end: 0 })
+
+  // Close fmt-hints popover when clicking outside it
+  useEffect(() => {
+    if (!showFmtHints) return
+    const handler = (e) => {
+      if (fmtHintsRef.current && !fmtHintsRef.current.contains(e.target)) {
+        setShowFmtHints(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [showFmtHints])
+
+  // Close extras popover when clicking outside it
+  useEffect(() => {
+    if (!showExtras) return
+    const handler = (e) => {
+      const inButton = extrasRef.current?.contains(e.target)
+      const inPopover = extrasPopoverRef.current?.contains(e.target)
+      if (!inButton && !inPopover) {
+        setShowExtras(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [showExtras])
 
   const saveSelection = useCallback(() => {
     const el = textareaRef.current
@@ -193,6 +235,25 @@ export default function MessageInput({ onTyping }) {
     }
   }, [addPendingAttachment, updateAttachmentProgress, finalizeAttachment, setAttachmentError])
 
+  const uploadVoice = useCallback(async (blob, durationSecs) => {
+    const ext = blob.type.includes('ogg') ? 'ogg' : 'webm'
+    const file = new File([blob], `voice-message.${ext}`, { type: blob.type })
+    const tempId = addPendingAttachment(file)
+    try {
+      const { data } = await uploadFile(
+        file,
+        (pct) => updateAttachmentProgress(tempId, pct),
+        durationSecs,
+      )
+      finalizeAttachment(tempId, data)
+    } catch (err) {
+      const msg = err?.response?.data?.detail ?? 'Voice upload failed'
+      setAttachmentError(tempId, msg)
+    }
+  }, [addPendingAttachment, updateAttachmentProgress, finalizeAttachment, setAttachmentError])
+
+  const voiceRecorder = useVoiceRecorder(uploadVoice)
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files ?? [])
     if (files.length) uploadFiles(files)
@@ -240,6 +301,7 @@ export default function MessageInput({ onTyping }) {
   }
 
   return (
+    <>
     <div
       className={`border-t border-[var(--border)] bg-black/20 flex-shrink-0 transition-colors duration-150 ${dragOver ? 'bg-[var(--accent-teal)]/10' : ''}`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -280,7 +342,14 @@ export default function MessageInput({ onTyping }) {
         </div>
       )}
 
-      <div className="px-4 py-3 flex gap-2 items-end relative">
+      {voiceRecorder.state === 'recording' ? (
+        <VoiceRecordingBar
+          onStop={voiceRecorder.stopRecording}
+          onCancel={voiceRecorder.cancelRecording}
+        />
+      ) : null}
+
+      <div className={`px-4 py-3 flex gap-2 items-end relative${voiceRecorder.state === 'recording' ? ' hidden' : ''}`}>
         {/* Mention autocomplete popup */}
         {mention && mentionUsers.length > 0 && (
           <div className="absolute bottom-full left-4 right-4 mb-1 bg-[var(--bg-primary)]
@@ -333,7 +402,7 @@ export default function MessageInput({ onTyping }) {
           />
         )}
 
-        {/* Paperclip button */}
+        {/* Paperclip button — always visible */}
         <button
           onClick={() => fileInputRef.current?.click()}
           className="
@@ -349,11 +418,94 @@ export default function MessageInput({ onTyping }) {
           📎
         </button>
 
-        {/* GIF button */}
+        {/* + overflow button — mobile only; reveals GIF / Poll / ? / Emoji in a popover */}
+        <div ref={extrasRef} className="flex-shrink-0 sm:hidden">
+          <button
+            type="button"
+            onClick={() => setShowExtras((v) => !v)}
+            className={`
+              h-9 w-9 flex items-center justify-center rounded
+              border transition-all duration-200 font-mono text-base font-bold
+              ${showExtras
+                ? 'border-[var(--border-glow)] text-[var(--accent-teal)]'
+                : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]'}
+            `}
+            title="More actions"
+            aria-label="More actions"
+          >
+            +
+          </button>
+        </div>
+        {/* Extras popover — rendered in the outer relative container so left-1/2 centers on the full input bar */}
+        {showExtras && (
+          <div ref={extrasPopoverRef} className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex gap-1.5 p-2
+                          bg-[var(--bg-primary)] border border-[var(--border-glow)] rounded
+                          shadow-[0_0_12px_rgba(0,206,209,0.2)] z-30 sm:hidden">
+              {/* GIF */}
+              <button
+                onClick={() => { setShowGifPicker((v) => !v); setShowExtras(false) }}
+                className="
+                  h-9 px-2 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+                  transition-all duration-200 font-mono text-xs font-bold
+                "
+                title="Insert GIF"
+                data-testid="gif-button-mobile"
+              >
+                GIF
+              </button>
+              {/* Poll */}
+              <button
+                onClick={() => { setShowPollModal(true); setShowExtras(false) }}
+                className="
+                  h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+                  transition-all duration-200 text-base
+                "
+                title="Create poll"
+                data-testid="poll-button-mobile"
+              >
+                📊
+              </button>
+              {/* Emoji */}
+              <button
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => { setShowEmojiPicker((v) => !v); setShowExtras(false) }}
+                className="
+                  h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+                  transition-all duration-200 text-base
+                "
+                title="Insert emoji"
+                data-testid="emoji-button-mobile"
+              >
+                😊
+              </button>
+              {/* Mic */}
+              <button
+                onClick={() => { voiceRecorder.startRecording(); setShowExtras(false) }}
+                className="
+                  h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+                  border border-[var(--border)] text-[var(--text-muted)]
+                  hover:text-[var(--text-error)] hover:border-[var(--text-error)]
+                  transition-all duration-200 text-base
+                "
+                title="Voice message"
+                data-testid="mic-button-mobile"
+              >
+                🎤
+              </button>
+            </div>
+          )}
+
+        {/* GIF button — desktop only */}
         <button
           onClick={() => setShowGifPicker((v) => !v)}
           className="
-            h-9 px-2 flex items-center justify-center rounded flex-shrink-0
+            hidden sm:flex h-9 px-2 items-center justify-center rounded flex-shrink-0
             border border-[var(--border)] text-[var(--text-muted)]
             hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
             hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
@@ -365,13 +517,29 @@ export default function MessageInput({ onTyping }) {
           GIF
         </button>
 
-        {/* Emoji button — onMouseDown prevents focus theft so cursor position is preserved */}
+        {/* Poll button — desktop only */}
+        <button
+          onClick={() => setShowPollModal(true)}
+          className="
+            hidden sm:flex h-9 w-9 items-center justify-center rounded flex-shrink-0
+            border border-[var(--border)] text-[var(--text-muted)]
+            hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
+            hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
+            transition-all duration-200 text-base
+          "
+          title="Create poll"
+          data-testid="poll-button"
+        >
+          📊
+        </button>
+
+        {/* Emoji button — desktop only; onMouseDown prevents focus theft */}
         <button
           ref={emojiButtonRef}
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setShowEmojiPicker((v) => !v)}
           className="
-            h-9 w-9 flex items-center justify-center rounded flex-shrink-0
+            hidden sm:flex h-9 w-9 items-center justify-center rounded flex-shrink-0
             border border-[var(--border)] text-[var(--text-muted)]
             hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
             hover:shadow-[0_0_8px_rgba(0,206,209,0.2)]
@@ -383,17 +551,34 @@ export default function MessageInput({ onTyping }) {
           😊
         </button>
 
-        {/* Formatting hints button */}
-        <div className="relative flex-shrink-0">
+        {/* Mic button — desktop only */}
+        <button
+          onClick={voiceRecorder.startRecording}
+          className="
+            hidden sm:flex h-9 w-9 items-center justify-center rounded flex-shrink-0
+            border border-[var(--border)] text-[var(--text-muted)]
+            hover:text-[var(--text-error)] hover:border-[var(--text-error)]
+            hover:shadow-[0_0_8px_rgba(220,80,80,0.2)]
+            transition-all duration-200 text-base
+          "
+          title="Voice message"
+          data-testid="mic-button"
+        >
+          🎤
+        </button>
+
+
+        {/* Formatting hints button — desktop only */}
+        <div ref={fmtHintsRef} className="relative flex-shrink-0 hidden sm:block">
           <button
-            onMouseEnter={() => setShowFmtHints(true)}
-            onMouseLeave={() => setShowFmtHints(false)}
-            className="
+            onClick={() => setShowFmtHints((v) => !v)}
+            className={`
               h-9 w-9 flex items-center justify-center rounded
-              border border-[var(--border)] text-[var(--text-muted)]
-              hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]
-              transition-all duration-200 font-mono text-xs font-bold
-            "
+              border transition-all duration-200 font-mono text-xs font-bold
+              ${showFmtHints
+                ? 'border-[var(--border-glow)] text-[var(--accent-teal)]'
+                : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--accent-teal)] hover:border-[var(--border-glow)]'}
+            `}
             title="Formatting help"
             type="button"
             data-testid="fmt-hints-button"
@@ -402,6 +587,15 @@ export default function MessageInput({ onTyping }) {
           </button>
           {showFmtHints && (
             <div className="fmt-hints" data-testid="fmt-hints-popover">
+              <button
+                type="button"
+                onClick={() => setShowFmtHints(false)}
+                className="absolute top-1.5 right-1.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]
+                           text-xs leading-none"
+                aria-label="Close formatting help"
+              >
+                ✕
+              </button>
               {`**bold**   *italic*   ~~strike~~   \`code\`\n\`\`\`lang  code block  \`\`\`   > quote`}
             </div>
           )}
@@ -422,7 +616,7 @@ export default function MessageInput({ onTyping }) {
             placeholder:text-[var(--text-muted)]
             focus:outline-none focus:border-[var(--border-glow)]
             focus:shadow-[0_0_12px_rgba(0,206,209,0.3)]
-            resize-none overflow-y-hidden transition-colors duration-200
+            resize-none overflow-y-auto transition-colors duration-200
             leading-relaxed
           "
         />
@@ -454,5 +648,8 @@ export default function MessageInput({ onTyping }) {
         </button>
       </div>
     </div>
+
+    {showPollModal && <CreatePollModal onClose={() => setShowPollModal(false)} />}
+    </>
   )
 }

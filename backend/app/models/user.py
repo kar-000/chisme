@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -23,6 +23,13 @@ class User(Base):
     # CRT teal palette: status displayed with --crt-teal (#00CED1) in the UI
     status = Column(String(100), default="online")
     is_active = Column(Boolean, default=True)
+
+    # Quiet hours / Do Not Disturb
+    quiet_hours_enabled = Column(Boolean, default=False, nullable=False, server_default="false")
+    quiet_hours_start = Column(Time, nullable=True)  # e.g., 23:00
+    quiet_hours_end = Column(Time, nullable=True)  # e.g., 08:00
+    quiet_hours_tz = Column(String(50), nullable=True)  # e.g., "America/Chicago"
+    dnd_override = Column(String(10), nullable=True)  # "on", "off", or null (use schedule)
     # Site-level flags — set directly in the database, never via API.
     # is_site_admin: full operator access to /api/operator/ endpoints.
     # can_create_server: allows creating new servers (disabled by default on

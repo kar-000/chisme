@@ -10,12 +10,29 @@ function formatDate(iso) {
     ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+const EMPTY_FILTERS = { from_user: '', after: '', before: '', has_link: false, has_file: false }
+
+function hasActiveFilters(f) {
+  return !!(f.from_user || f.after || f.before || f.has_link || f.has_file)
+}
+
+function FilterChip({ label, onRemove }) {
+  return (
+    <span className="search-filter-chip">
+      {label}
+      <button type="button" onClick={onRemove}>✕</button>
+    </span>
+  )
+}
+
 /**
  * Full-screen search overlay.  Close with Escape or clicking the backdrop.
  */
 export default function MessageSearch({ onClose }) {
   const [query, setQuery] = useState('')
   const [channelFilter, setChannelFilter] = useState('')
+  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
@@ -31,15 +48,15 @@ export default function MessageSearch({ onClose }) {
     inputRef.current?.focus()
   }, [])
 
-  const runSearch = async (q, chId) => {
-    if (!q.trim()) {
+  const runSearch = async (q, chId, f) => {
+    if (!q.trim() && !hasActiveFilters(f) && !chId) {
       setResults([])
       setSearched(false)
       return
     }
     setLoading(true)
     try {
-      const res = await searchMessages(q.trim(), chId || undefined)
+      const res = await searchMessages(q.trim(), chId || undefined, f)
       setResults(res.data.results)
       setSearched(true)
     } catch {
@@ -53,13 +70,19 @@ export default function MessageSearch({ onClose }) {
     const val = e.target.value
     setQuery(val)
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => runSearch(val, channelFilter), 400)
+    timerRef.current = setTimeout(() => runSearch(val, channelFilter, filters), 400)
   }
 
   const handleChannelFilter = (e) => {
     const val = e.target.value
     setChannelFilter(val)
-    if (query.trim()) runSearch(query, val)
+    runSearch(query, val, filters)
+  }
+
+  const updateFilter = (patch) => {
+    const next = { ...filters, ...patch }
+    setFilters(next)
+    runSearch(query, channelFilter, next)
   }
 
   const handleSelect = (result) => {
@@ -82,7 +105,7 @@ export default function MessageSearch({ onClose }) {
                    rounded-lg shadow-glow-lg flex flex-col overflow-hidden"
         style={{ maxHeight: '70vh' }}
       >
-        {/* Input */}
+        {/* Query input */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border)]">
           <span className="text-[var(--text-muted)] text-sm">🔍</span>
           <input
@@ -97,6 +120,17 @@ export default function MessageSearch({ onClose }) {
           {loading && (
             <span className="text-[var(--text-muted)] text-xs font-mono">searching…</span>
           )}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            title="Toggle filters"
+            className={`text-xs font-mono px-2 py-0.5 rounded border transition-colors
+              ${filtersOpen || hasActiveFilters(filters)
+                ? 'border-[var(--accent-teal)] text-[var(--accent-teal)]'
+                : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--accent-teal)] hover:text-[var(--accent-teal)]'}`}
+          >
+            ⊞ filters
+          </button>
           <button
             onClick={onClose}
             className="text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xl leading-none"
@@ -124,11 +158,85 @@ export default function MessageSearch({ onClose }) {
           </select>
         </div>
 
+        {/* Expanded filter row */}
+        {filtersOpen && (
+          <div className="px-4 py-2 border-b border-[var(--border)] flex flex-wrap gap-3 bg-black/20">
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">From</span>
+              <input
+                className="search-filter-input"
+                placeholder="username"
+                value={filters.from_user}
+                onChange={(e) => updateFilter({ from_user: e.target.value })}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">After</span>
+              <input
+                type="date"
+                className="search-filter-input"
+                value={filters.after}
+                onChange={(e) => updateFilter({ after: e.target.value })}
+              />
+            </label>
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-widest">Before</span>
+              <input
+                type="date"
+                className="search-filter-input"
+                value={filters.before}
+                onChange={(e) => updateFilter({ before: e.target.value })}
+              />
+            </label>
+            <div className="flex flex-col gap-1 justify-end">
+              <label className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-secondary)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.has_link}
+                  onChange={(e) => updateFilter({ has_link: e.target.checked })}
+                  className="accent-[var(--accent-teal)]"
+                />
+                Has link
+              </label>
+              <label className="flex items-center gap-1.5 text-xs font-mono text-[var(--text-secondary)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.has_file}
+                  onChange={(e) => updateFilter({ has_file: e.target.checked })}
+                  className="accent-[var(--accent-teal)]"
+                />
+                Has file
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Active filter chips */}
+        {hasActiveFilters(filters) && (
+          <div className="px-4 py-1.5 border-b border-[var(--border)] flex flex-wrap gap-1.5 bg-black/10">
+            {filters.from_user && (
+              <FilterChip label={`from: ${filters.from_user}`} onRemove={() => updateFilter({ from_user: '' })} />
+            )}
+            {filters.after && (
+              <FilterChip label={`after: ${filters.after}`} onRemove={() => updateFilter({ after: '' })} />
+            )}
+            {filters.before && (
+              <FilterChip label={`before: ${filters.before}`} onRemove={() => updateFilter({ before: '' })} />
+            )}
+            {filters.has_link && (
+              <FilterChip label="has: link" onRemove={() => updateFilter({ has_link: false })} />
+            )}
+            {filters.has_file && (
+              <FilterChip label="has: file" onRemove={() => updateFilter({ has_file: false })} />
+            )}
+          </div>
+        )}
+
         {/* Results */}
         <div className="overflow-y-auto flex-1">
           {results.length === 0 && searched && !loading && (
             <p className="text-[var(--text-muted)] text-sm font-mono text-center py-6">
-              No results for "{query}"
+              No results found
             </p>
           )}
           {results.map((r) => (

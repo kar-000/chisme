@@ -1,11 +1,15 @@
 import { useState, useRef } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
+import useBookmarkStore from '../../store/bookmarkStore'
 import ProfileModal from '../Common/ProfileModal'
 import { getUserByUsername } from '../../services/users'
 import EmojiPicker from './EmojiPicker'
 import TwemojiEmoji from '../Common/TwemojiEmoji'
 import { MessageContent } from './MessageContent'
+import PollMessage from './PollMessage'
+import VoiceMessagePlayer from './VoiceMessagePlayer'
+import ReminderPicker from './ReminderPicker'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -24,6 +28,17 @@ function Attachments({ attachments }) {
         {attachments.map((a) => {
           const isImage = a.mime_type.startsWith('image/')
           const isVideo = a.mime_type.startsWith('video/')
+          const isAudio = a.mime_type.startsWith('audio/')
+
+          if (isAudio) {
+            return (
+              <VoiceMessagePlayer
+                key={a.id}
+                url={a.url}
+                durationSecs={a.duration_secs}
+              />
+            )
+          }
 
           if (isImage) {
             return (
@@ -152,17 +167,28 @@ function ReactionBar({ reactions = [], messageId }) {
 }
 
 export default function Message({ message }) {
-  const { user } = useAuthStore()
+  const { user, keywords } = useAuthStore()
   const { editMessage, deleteMessage, addReaction, setReplyingTo } = useChatStore()
+  const { bookmarkedMessageIds, addBookmark, removeBookmarkByMessageId } = useBookmarkStore()
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [showActions, setShowActions] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionPickerClass, setReactionPickerClass] = useState('bottom-full right-0')
   const [profileUserId, setProfileUserId] = useState(null)
+  const [showReminderPicker, setShowReminderPicker] = useState(false)
   const reactionButtonRef = useRef(null)
 
   const isOwn = message.user_id === user?.id
+  const isBookmarked = bookmarkedMessageIds.has(message.id)
+
+  const handleToggleBookmark = async () => {
+    if (isBookmarked) {
+      await removeBookmarkByMessageId(message.id)
+    } else {
+      await addBookmark(message.id)
+    }
+  }
 
   const handleEdit = async (e) => {
     e.preventDefault()
@@ -237,12 +263,15 @@ export default function Message({ message }) {
             <button type="submit" className="text-xs text-[var(--text-primary)] hover:glow-teal px-2">save</button>
             <button type="button" onClick={() => setEditing(false)} className="text-xs text-[var(--text-muted)] px-2">cancel</button>
           </form>
+        ) : message.poll ? (
+          <PollMessage poll={message.poll} messageId={message.id} />
         ) : (
           <div className={isOwn ? 'glow-pink' : 'glow-teal'}>
             <MessageContent
               content={message.content}
               currentUsername={user?.username}
               isOwn={isOwn}
+              keywords={keywords}
               onMentionClick={async (username) => {
                 try {
                   const { data } = await getUserByUsername(username)
@@ -302,6 +331,33 @@ export default function Message({ message }) {
               positionClass={reactionPickerClass}
             />
           )}
+
+          <button
+            onClick={handleToggleBookmark}
+            className={`text-xs transition-colors px-1 ${isBookmarked ? 'text-[var(--accent-teal)]' : 'text-[var(--text-muted)] hover:text-[var(--accent-teal)]'}`}
+            title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+            data-testid="bookmark-button"
+          >
+            🔖
+          </button>
+
+          {/* Remind me */}
+          <div className="relative">
+            <button
+              onClick={() => setShowReminderPicker((v) => !v)}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors px-1"
+              title="Remind me"
+              data-testid="remind-button"
+            >
+              ⏰
+            </button>
+            {showReminderPicker && (
+              <ReminderPicker
+                messageId={message.id}
+                onClose={() => setShowReminderPicker(false)}
+              />
+            )}
+          </div>
 
           <button
             onClick={() => setReplyingTo(message)}

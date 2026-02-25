@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import useDMStore from '../store/dmStore'
 import useAuthStore from '../store/authStore'
 import { showNotification } from '../utils/notifications'
+import { isInQuietHours } from '../utils/quietHours'
 
 const RECONNECT_DELAY = 3000
 
@@ -30,10 +31,13 @@ export function useWebSocketDM(dmId, token) {
         appendDMMessage(data.message)
         // Notify for incoming DM messages from others
         if (me && data.message?.user_id !== me.id) {
-          showNotification(`DM from ${data.message?.user?.username}`, {
-            body: data.message?.content,
-            tag: `dm-${data.message?.id}`,
-          })
+          const quietHours = useAuthStore.getState().quietHours
+          if (!isInQuietHours(quietHours)) {
+            showNotification(`DM from ${data.message?.user?.username}`, {
+              body: data.message?.content,
+              tag: `dm-${data.message?.id}`,
+            })
+          }
         }
       }
     }

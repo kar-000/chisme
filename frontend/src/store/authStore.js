@@ -1,11 +1,15 @@
 import { create } from 'zustand'
 import { login as apiLogin, register as apiRegister, getMe, revokeToken } from '../services/auth'
+import { getQuietHours } from '../services/users'
+import { getKeywords } from '../services/keywords'
 
 const useAuthStore = create((set) => ({
   user: null,
   token: localStorage.getItem('token') || null,
   loading: false,
   error: null,
+  quietHours: null,
+  keywords: [],
 
   login: async (username, password) => {
     set({ loading: true, error: null })
@@ -14,6 +18,8 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('refresh_token', data.refresh_token)
       set({ user: data.user, token: data.access_token, loading: false })
+      getQuietHours().then((r) => set({ quietHours: r.data })).catch(() => {})
+      getKeywords().then((r) => set({ keywords: r.data })).catch(() => {})
     } catch (err) {
       set({ error: err.response?.data?.detail ?? 'Login failed', loading: false })
     }
@@ -26,6 +32,8 @@ const useAuthStore = create((set) => ({
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('refresh_token', data.refresh_token)
       set({ user: data.user, token: data.access_token, loading: false })
+      getQuietHours().then((r) => set({ quietHours: r.data })).catch(() => {})
+      getKeywords().then((r) => set({ keywords: r.data })).catch(() => {})
     } catch (err) {
       const detail = err.response?.data?.detail
       const msg = Array.isArray(detail)
@@ -41,6 +49,8 @@ const useAuthStore = create((set) => ({
     try {
       const { data } = await getMe()
       set({ user: data, token })
+      getQuietHours().then((r) => set({ quietHours: r.data })).catch(() => {})
+      getKeywords().then((r) => set({ keywords: r.data })).catch(() => {})
     } catch {
       // getMe() returning an error here means even the silent refresh failed
       // (api.js interceptor already attempted it). Clear everything.
@@ -61,12 +71,16 @@ const useAuthStore = create((set) => ({
     }
     localStorage.removeItem('token')
     localStorage.removeItem('refresh_token')
-    set({ user: null, token: null })
+    set({ user: null, token: null, quietHours: null, keywords: [] })
   },
 
   clearError: () => set({ error: null }),
 
   setUser: (user) => set({ user }),
+
+  setQuietHours: (qh) => set({ quietHours: qh }),
+
+  setKeywords: (kws) => set({ keywords: kws }),
 }))
 
 export default useAuthStore

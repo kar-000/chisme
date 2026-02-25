@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import useChatStore from '../store/chatStore'
 import useAuthStore from '../store/authStore'
+import useReminderStore from '../store/reminderStore'
+import useChannelNotesStore from '../store/channelNotesStore'
 import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
+import { isInQuietHours } from '../utils/quietHours'
 
 const MAX_RECONNECT_ATTEMPTS = 10
 
@@ -26,18 +29,6 @@ export function useWebSocket(serverId, token) {
   const attemptsRef = useRef(0)
   const mountedRef = useRef(true)
   const notifPermRequested = useRef(false)
-
-  const me = useAuthStore((s) => s.user)
-  const appendMessageForChannel = useChatStore((s) => s.appendMessageForChannel)
-  const incrementUnread = useChatStore((s) => s.incrementUnread)
-  const updateMessage = useChatStore((s) => s.updateMessage)
-  const removeMessage = useChatStore((s) => s.removeMessage)
-  const setTypingUsers = useChatStore((s) => s.setTypingUsers)
-  const setVoiceUser = useChatStore((s) => s.setVoiceUser)
-  const removeVoiceUser = useChatStore((s) => s.removeVoiceUser)
-  const pushVoiceSignal = useChatStore((s) => s.pushVoiceSignal)
-  const setChannelVoiceCount = useChatStore((s) => s.setChannelVoiceCount)
-  const adjustChannelVoiceCount = useChatStore((s) => s.adjustChannelVoiceCount)
   const typingTimeouts = useRef({})
 
   const connect = useCallback(() => {
@@ -69,7 +60,22 @@ export function useWebSocket(serverId, token) {
       try { data = JSON.parse(ev.data) } catch { return }
 
       const channelId = data.channel_id
-      const activeChannelId = useChatStore.getState().activeChannelId
+      const {
+        activeChannelId,
+        appendMessageForChannel,
+        incrementUnread,
+        updateMessage,
+        removeMessage,
+        updatePollInMessage,
+        setTypingUsers,
+        setVoiceUser,
+        removeVoiceUser,
+        pushVoiceSignal,
+        setChannelVoiceCount,
+        adjustChannelVoiceCount,
+      } = useChatStore.getState()
+
+      const me = useAuthStore.getState().user
 
       switch (data.type) {
         case 'message.new': {
@@ -79,11 +85,24 @@ export function useWebSocket(serverId, token) {
           } else if (!isOwnMessage) {
             incrementUnread(channelId)
           }
-          if (!isOwnMessage && me && isMention(data.message?.content, me.username)) {
-            showNotification(
-              `@${me.username} mentioned by ${data.message?.user?.username}`,
-              { body: data.message?.content, tag: `mention-${data.message?.id}` }
-            )
+          if (!isOwnMessage && me) {
+            const { quietHours, keywords } = useAuthStore.getState()
+            const content = data.message?.content ?? ''
+            const isMentioned = isMention(content, me.username)
+            const contentLower = content.toLowerCase()
+            const matchedKeyword = !isMentioned && keywords.length > 0
+              ? keywords.find((k) => contentLower.includes(k.keyword))
+              : null
+
+            if ((isMentioned || matchedKeyword) && !isInQuietHours(quietHours)) {
+              const title = isMentioned
+                ? `@${me.username} mentioned by ${data.message?.user?.username}`
+                : `Keyword "${matchedKeyword.keyword}" in message from ${data.message?.user?.username}`
+              showNotification(title, {
+                body: content,
+                tag: `mention-${data.message?.id}`,
+              })
+            }
           }
           break
         }
@@ -92,6 +111,12 @@ export function useWebSocket(serverId, token) {
           break
         case 'message.deleted':
           removeMessage(data.message_id)
+          break
+        case 'poll_updated':
+          updatePollInMessage(data.message_id, {
+            options: data.options,
+            total_votes: data.total_votes,
+          })
           break
         case 'user.typing': {
           if (channelId !== activeChannelId) break
@@ -132,6 +157,28 @@ export function useWebSocket(serverId, token) {
         case 'voice.ice_candidate':
           pushVoiceSignal(data)
           break
+        case 'reminder_due': {
+          const { markDelivered } = useReminderStore.getState()
+          markDelivered(data.reminder?.id)
+          const msg = data.reminder?.message
+          const preview = msg?.content ? msg.content.slice(0, 80) : '(attachment)'
+          showNotification('⏰ Reminder', {
+            body: `${msg?.user?.username ?? ''}: ${preview}`,
+            tag: `reminder-${data.reminder?.id}`,
+          })
+          break
+        }
+        case 'channel_notes_updated': {
+          const { applyWsUpdate } = useChannelNotesStore.getState()
+          if (data.channel_id != null) {
+            applyWsUpdate(data.channel_id, {
+              content: data.content,
+              version: data.version,
+              updated_by: data.updated_by,
+            })
+          }
+          break
+        }
         default:
           break
       }
@@ -154,20 +201,7 @@ export function useWebSocket(serverId, token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [
-    serverId,
-    token,
-    appendMessageForChannel,
-    incrementUnread,
-    updateMessage,
-    removeMessage,
-    setTypingUsers,
-    setVoiceUser,
-    removeVoiceUser,
-    pushVoiceSignal,
-    setChannelVoiceCount,
-    adjustChannelVoiceCount,
-  ])
+  }, [serverId, token])
 
   // Send a typing indicator for the currently-active channel
   const sendTyping = useCallback((channelId) => {

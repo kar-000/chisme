@@ -5,7 +5,8 @@ from app.api.deps import get_current_user
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import UserResponse, UserUpdate
+from app.schemas.user import QuietHoursResponse, QuietHoursUpdate, UserResponse, UserUpdate
+from app.services.notification_service import is_user_in_quiet_hours
 from app.storage import save_upload
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -62,6 +63,51 @@ async def update_me(
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+def _quiet_hours_response(user: User) -> QuietHoursResponse:
+    return QuietHoursResponse(
+        enabled=user.quiet_hours_enabled,
+        start=user.quiet_hours_start.strftime("%H:%M") if user.quiet_hours_start else None,
+        end=user.quiet_hours_end.strftime("%H:%M") if user.quiet_hours_end else None,
+        timezone=user.quiet_hours_tz,
+        dnd_override=user.dnd_override,
+        currently_active=is_user_in_quiet_hours(user),
+    )
+
+
+@router.get("/me/quiet-hours", response_model=QuietHoursResponse)
+async def get_quiet_hours(
+    current_user: User = Depends(get_current_user),
+) -> QuietHoursResponse:
+    return _quiet_hours_response(current_user)
+
+
+@router.patch("/me/quiet-hours", response_model=QuietHoursResponse)
+async def update_quiet_hours(
+    update: QuietHoursUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> QuietHoursResponse:
+    from datetime import datetime as _dt
+
+    current_user.quiet_hours_enabled = update.enabled
+
+    if update.start is not None:
+        current_user.quiet_hours_start = _dt.strptime(update.start, "%H:%M").time() if update.start else None
+    if update.end is not None:
+        current_user.quiet_hours_end = _dt.strptime(update.end, "%H:%M").time() if update.end else None
+
+    if update.timezone is not None:
+        current_user.quiet_hours_tz = update.timezone or None
+
+    if "dnd_override" in update.model_fields_set:
+        val = update.dnd_override
+        current_user.dnd_override = val if val in ("on", "off") else None
+
+    db.commit()
+    db.refresh(current_user)
+    return _quiet_hours_response(current_user)
 
 
 @router.post("/me/avatar", response_model=UserResponse)

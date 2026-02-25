@@ -45,6 +45,7 @@ class GifAttachRequest(BaseModel):
 def _tenor_fetch(path: str, params: dict) -> dict:
     """Call the Tenor v2 API and return the parsed JSON response."""
     params["key"] = settings.TENOR_API_KEY
+    params["client_key"] = "chisme"  # required by Tenor v2 API
     params["media_filter"] = "tinygif,nanogif"
     url = f"{settings.TENOR_API_BASE}/{path}"
     try:
@@ -98,6 +99,8 @@ def search_gifs(
     current_user: User = Depends(get_current_user),
 ) -> list[GifResult]:
     """Search Tenor for GIFs (or return featured GIFs when query is empty)."""
+    if not settings.TENOR_API_KEY:
+        return []
     limit = min(limit, settings.TENOR_SEARCH_LIMIT)
     if q.strip():
         data = _tenor_fetch("search", {"q": q.strip(), "limit": limit})

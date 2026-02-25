@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -15,6 +15,7 @@ router = APIRouter(prefix="/upload", tags=["uploads"])
 @router.post("", response_model=AttachmentResponse)
 async def upload_file(
     file: UploadFile = File(...),
+    duration_secs: int | None = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AttachmentResponse:
@@ -55,6 +56,7 @@ async def upload_file(
         mime_type=file.content_type,
         size=len(content),
         thumbnail_filename=thumb_name,
+        duration_secs=duration_secs,
     )
     db.add(attachment)
     db.commit()

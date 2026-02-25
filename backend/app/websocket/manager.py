@@ -145,8 +145,29 @@ class ConnectionManager:
         for uid in dead:
             self.disconnect_dm(uid, dm_id)
 
+    def get_dm_users(self, dm_id: int) -> list[int]:
+        """Return user_ids currently connected to a DM channel."""
+        return list(self._dm_connections.get(dm_id, {}).keys())
+
     async def send_personal(self, websocket: WebSocket, payload: dict) -> None:
         await websocket.send_text(json.dumps(payload))
+
+    async def send_to_user(self, user_id: int, payload: dict) -> bool:
+        """Send a payload to a user across all their active server connections.
+
+        Returns True if delivered to at least one connection.
+        """
+        data = json.dumps(payload)
+        sent = False
+        for server_id in list(self._connections.keys()):
+            ws = self._connections[server_id].get(user_id)
+            if ws is not None:
+                try:
+                    await ws.send_text(data)
+                    sent = True
+                except Exception:
+                    self.disconnect(user_id, server_id)
+        return sent
 
 
 manager = ConnectionManager()

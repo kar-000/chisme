@@ -17,7 +17,7 @@ export default function EmojiPickerLazy({ onEmojiSelect, defaultSkin }) {
       skinTonePosition="search"
       previewPosition="none"
       locale="en"
-      perLine={8}
+      perLine={7}
       maxFrequentRows={2}
       skin={defaultSkin}
     />

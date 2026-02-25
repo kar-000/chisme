@@ -12,6 +12,7 @@ class AttachmentResponse(BaseModel):
     created_at: datetime
     external_url: str | None = None
     thumbnail_filename: str | None = None
+    duration_secs: int | None = None
 
     @computed_field
     @property
