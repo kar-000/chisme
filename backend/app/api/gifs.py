@@ -1,4 +1,4 @@
-"""Tenor GIF search proxy and attachment creation."""
+"""GIF search proxy (Klipy) and attachment creation."""
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -43,9 +43,8 @@ class GifAttachRequest(BaseModel):
 
 
 def _tenor_fetch(path: str, params: dict) -> dict:
-    """Call the Tenor v2 API and return the parsed JSON response."""
+    """Call the Klipy GIF API (Tenor-compatible) and return the parsed JSON response."""
     params["key"] = settings.TENOR_API_KEY
-    params["client_key"] = "chisme"  # required by Tenor v2 API
     params["media_filter"] = "tinygif,nanogif"
     url = f"{settings.TENOR_API_BASE}/{path}"
     try:
@@ -56,12 +55,12 @@ def _tenor_fetch(path: str, params: dict) -> dict:
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Tenor API error: {exc.response.status_code}",
+            detail=f"GIF API error: {exc.response.status_code}",
         ) from exc
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Tenor API error: {exc}",
+            detail=f"GIF API error: {exc}",
         ) from exc
 
 
@@ -98,7 +97,7 @@ def search_gifs(
     limit: int = 20,
     current_user: User = Depends(get_current_user),
 ) -> list[GifResult]:
-    """Search Tenor for GIFs (or return featured GIFs when query is empty)."""
+    """Search Klipy for GIFs (or return featured GIFs when query is empty)."""
     if not settings.TENOR_API_KEY:
         return []
     limit = min(limit, settings.TENOR_SEARCH_LIMIT)
@@ -115,7 +114,7 @@ def attach_gif(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> AttachmentResponse:
-    """Record a Tenor GIF as an attachment (external URL, no local storage)."""
+    """Record a GIF as an attachment (external URL, no local storage)."""
     attachment = Attachment(
         user_id=current_user.id,
         filename=f"tenor_{body.tenor_id}.gif",

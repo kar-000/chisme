@@ -21,12 +21,13 @@ class Settings(BaseSettings):
     # Each independent Chisme deployment should have a unique value.
     SERVER_DOMAIN: str = "localhost"
 
-    # Tenor GIF API (v2).
-    # Default is the publicly-documented non-commercial demo key.
+    # GIF API — Klipy (Tenor-compatible, same endpoint structure).
+    # Tenor is shutting down 2026-06-30; Klipy is the drop-in replacement.
+    # Get a free API key at https://partner.klipy.com
     # Override with your own key via TENOR_API_KEY in .env.
     # Leave blank to disable GIF search entirely.
-    TENOR_API_KEY: str = "AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk"
-    TENOR_API_BASE: str = "https://tenor.googleapis.com/v2"
+    TENOR_API_KEY: str = ""
+    TENOR_API_BASE: str = "https://api.klipy.com/v2"
     TENOR_SEARCH_LIMIT: int = 20
 
     # File uploads
