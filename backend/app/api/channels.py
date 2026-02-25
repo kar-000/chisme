@@ -406,62 +406,66 @@ async def send_message(
             {
                 "type": "message.new",
                 "channel_id": channel_id,
+                "channel_name": channel.name,
+                "server_name": membership.server.name,
                 "message": response.model_dump(mode="json"),
             },
         )
     )
 
-    # Push notifications for @mentioned users not currently connected to the server
-    if message_in.content:
-        current_user = db.query(User).filter(User.id == current_user_id).first()
-        connected_users = set(manager.get_server_users(server_id))
-        words = message_in.content.lower().split()
-        mentioned_names = {w.lstrip("@") for w in words if w.startswith("@")}
-        if mentioned_names:
-            mentioned_users = (
-                db.query(User)
-                .filter(
-                    User.username.in_(mentioned_names),
-                    User.id != current_user_id,
-                )
-                .all()
-            )
-            for target in mentioned_users:
-                if target.id not in connected_users:
-                    send_push_to_user(
-                        user_id=target.id,
-                        title=(f"@{current_user.username} mentioned you in #{channel.name}"),
-                        body=message_in.content[:100],
-                        url=f"/?channel={channel_id}",
-                        tag=f"mention-{message.id}",
-                        db=db,
-                    )
-
-        # Keyword notifications — push to offline users who have a keyword match
-        content_lower = message_in.content.lower()
-        keyword_rows = (
-            db.query(UserKeyword)
-            .join(ServerMembership, ServerMembership.user_id == UserKeyword.user_id)
-            .filter(
-                ServerMembership.server_id == server_id,
-                UserKeyword.user_id != current_user_id,
-            )
-            .all()
+    # Push notifications for all offline server members.
+    # Mentions and keyword matches get distinct titles; all others get a generic alert.
+    current_user = db.query(User).filter(User.id == current_user_id).first()
+    connected_users = set(manager.get_server_users(server_id))
+    all_members = (
+        db.query(User)
+        .join(ServerMembership, ServerMembership.user_id == User.id)
+        .filter(
+            ServerMembership.server_id == server_id,
+            User.id != current_user_id,
         )
-        keyword_matches: dict[int, list[str]] = {}
-        for kw_row in keyword_rows:
-            if re.search(re.escape(kw_row.keyword), content_lower):
-                keyword_matches.setdefault(kw_row.user_id, []).append(kw_row.keyword)
+        .all()
+    )
+    offline_members = [m for m in all_members if m.id not in connected_users]
+    if offline_members:
+        content = message_in.content or ""
+        body = content[:100] if content else "(attachment)"
 
-        for uid, _kws in keyword_matches.items():
-            if uid not in connected_users:
-                send_push_to_user(
-                    user_id=uid,
-                    title=f"{current_user.username} mentioned a keyword in #{channel.name}",
-                    body=message_in.content[:100],
-                    url=f"/?channel={channel_id}",
-                    tag=f"keyword-{message.id}-{uid}",
-                    db=db,
-                )
+        # Determine @mentioned members within this server
+        mentioned_ids: set[int] = set()
+        if content:
+            mentioned_names = {w.lstrip("@").lower() for w in content.split() if w.startswith("@")}
+            if mentioned_names:
+                member_by_username = {m.username.lower(): m for m in all_members}
+                mentioned_ids = {member_by_username[n].id for n in mentioned_names if n in member_by_username}
+
+        # Keyword matches for offline members only
+        keyword_matches: dict[int, str] = {}  # user_id -> first matched keyword
+        if content:
+            content_lower = content.lower()
+            offline_ids = [m.id for m in offline_members]
+            keyword_rows = db.query(UserKeyword).filter(UserKeyword.user_id.in_(offline_ids)).all()
+            for kw_row in keyword_rows:
+                if kw_row.user_id not in keyword_matches and re.search(re.escape(kw_row.keyword), content_lower):
+                    keyword_matches[kw_row.user_id] = kw_row.keyword
+
+        for member in offline_members:
+            if member.id in mentioned_ids:
+                title = f"{current_user.username} mentioned you in #{channel.name} · {membership.server.name}"
+                tag = f"mention-{message.id}-{member.id}"
+            elif member.id in keyword_matches:
+                title = f"{current_user.username} mentioned a keyword in #{channel.name} · {membership.server.name}"
+                tag = f"keyword-{message.id}-{member.id}"
+            else:
+                title = f"{current_user.username} in #{channel.name} · {membership.server.name}"
+                tag = f"msg-{channel_id}"  # collapses multiple messages per channel
+            send_push_to_user(
+                user_id=member.id,
+                title=title,
+                body=body,
+                url=f"/?channel={channel_id}",
+                tag=tag,
+                db=db,
+            )
 
     return response

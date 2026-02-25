@@ -87,22 +87,29 @@ export function useWebSocket(serverId, token) {
           } else if (!isOwnMessage) {
             incrementUnread(channelId)
           }
-          if (!isOwnMessage && me) {
-            const { quietHours, keywords } = useAuthStore.getState()
+          if (!isOwnMessage && me && !isInQuietHours(useAuthStore.getState().quietHours)) {
+            const { keywords } = useAuthStore.getState()
             const content = data.message?.content ?? ''
             const isMentioned = isMention(content, me.username)
             const contentLower = content.toLowerCase()
             const matchedKeyword = !isMentioned && keywords.length > 0
               ? keywords.find((k) => contentLower.includes(k.keyword))
               : null
+            const isInBackground = channelId !== activeChannelId
 
-            if ((isMentioned || matchedKeyword) && !isInQuietHours(quietHours)) {
+            if (isMentioned || matchedKeyword || isInBackground) {
+              const sender = data.message?.user?.username ?? ''
+              const loc = data.channel_name && data.server_name
+                ? `#${data.channel_name} · ${data.server_name}`
+                : data.channel_name ? `#${data.channel_name}` : ''
               const title = isMentioned
-                ? `@${me.username} mentioned by ${data.message?.user?.username}`
-                : `Keyword "${matchedKeyword.keyword}" in message from ${data.message?.user?.username}`
+                ? `${sender} mentioned you${loc ? ` in ${loc}` : ''}`
+                : matchedKeyword
+                  ? `Keyword "${matchedKeyword.keyword}" in ${loc || 'a channel'} from ${sender}`
+                  : `${sender}${loc ? ` in ${loc}` : ''}`
               showNotification(title, {
-                body: content,
-                tag: `mention-${data.message?.id}`,
+                body: content || '(attachment)',
+                tag: (isMentioned || matchedKeyword) ? `mention-${data.message?.id}` : `msg-${channelId}`,
               })
             }
           }
