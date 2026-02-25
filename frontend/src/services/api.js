@@ -1,4 +1,5 @@
 import axios from 'axios'
+import useAuthStore from '../store/authStore'
 
 const api = axios.create({ baseURL: '/api' })
 
@@ -60,6 +61,8 @@ api.interceptors.response.use(
       })
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('refresh_token', data.refresh_token)
+      // Keep the Zustand store in sync so WebSocket hooks pick up the new token
+      useAuthStore.getState().setToken(data.access_token)
       processQueue(null, data.access_token)
       originalRequest.headers.Authorization = `Bearer ${data.access_token}`
       return api(originalRequest)
