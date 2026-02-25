@@ -76,6 +76,8 @@ const useAuthStore = create((set) => ({
 
   clearError: () => set({ error: null }),
 
+  setToken: (token) => set({ token }),
+
   setUser: (user) => set({ user }),
 
   setQuietHours: (qh) => set({ quietHours: qh }),
