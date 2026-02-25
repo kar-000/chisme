@@ -8,6 +8,8 @@ import EmojiPicker from './EmojiPicker'
 import TwemojiEmoji from '../Common/TwemojiEmoji'
 import { MessageContent } from './MessageContent'
 import PollMessage from './PollMessage'
+import VoiceMessagePlayer from './VoiceMessagePlayer'
+import ReminderPicker from './ReminderPicker'
 
 function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -26,6 +28,17 @@ function Attachments({ attachments }) {
         {attachments.map((a) => {
           const isImage = a.mime_type.startsWith('image/')
           const isVideo = a.mime_type.startsWith('video/')
+          const isAudio = a.mime_type.startsWith('audio/')
+
+          if (isAudio) {
+            return (
+              <VoiceMessagePlayer
+                key={a.id}
+                url={a.url}
+                durationSecs={a.duration_secs}
+              />
+            )
+          }
 
           if (isImage) {
             return (
@@ -163,6 +176,7 @@ export default function Message({ message }) {
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionPickerClass, setReactionPickerClass] = useState('bottom-full right-0')
   const [profileUserId, setProfileUserId] = useState(null)
+  const [showReminderPicker, setShowReminderPicker] = useState(false)
   const reactionButtonRef = useRef(null)
 
   const isOwn = message.user_id === user?.id
@@ -326,6 +340,24 @@ export default function Message({ message }) {
           >
             🔖
           </button>
+
+          {/* Remind me */}
+          <div className="relative">
+            <button
+              onClick={() => setShowReminderPicker((v) => !v)}
+              className="text-xs text-[var(--text-muted)] hover:text-[var(--accent-teal)] transition-colors px-1"
+              title="Remind me"
+              data-testid="remind-button"
+            >
+              ⏰
+            </button>
+            {showReminderPicker && (
+              <ReminderPicker
+                messageId={message.id}
+                onClose={() => setShowReminderPicker(false)}
+              />
+            )}
+          </div>
 
           <button
             onClick={() => setReplyingTo(message)}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
 import useServerStore from '../../store/serverStore'
@@ -7,6 +7,7 @@ import Message from './Message'
 import MessageSkeleton from './MessageSkeleton'
 import MessageInput from './MessageInput'
 import TypingIndicator from './TypingIndicator'
+import ChannelNotes from './ChannelNotes'
 import Header from '../Layout/Header'
 import FailoverBanner from '../Common/FailoverBanner'
 
@@ -15,6 +16,7 @@ export default function MessageFeed({ onBack, onBookmarksOpen }) {
   const { token } = useAuthStore()
   const activeServerId = useServerStore((s) => s.activeServerId)
   const bottomRef = useRef(null)
+  const [notesOpen, setNotesOpen] = useState(false)
 
   const { sendTyping, sendMsg, connected, reconnecting, failoverDetected } = useWebSocket(activeServerId, token)
 
@@ -22,6 +24,11 @@ export default function MessageFeed({ onBack, onBookmarksOpen }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Close notes when switching channels
+  useEffect(() => {
+    setNotesOpen(false)
+  }, [activeChannelId])
 
   if (!activeChannelId) {
     return (
@@ -34,7 +41,14 @@ export default function MessageFeed({ onBack, onBookmarksOpen }) {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       <FailoverBanner reconnecting={reconnecting} failoverDetected={failoverDetected} />
-      <Header onBack={onBack} onBookmarksOpen={onBookmarksOpen} />
+      <Header
+        onBack={onBack}
+        onBookmarksOpen={onBookmarksOpen}
+        notesOpen={notesOpen}
+        onNotesToggle={() => setNotesOpen((o) => !o)}
+      />
+
+      <ChannelNotes channelId={activeChannelId} open={notesOpen} />
 
       {/* Messages scroll area */}
       <div className="flex-1 overflow-y-auto py-4 flex flex-col gap-0.5 min-h-0">

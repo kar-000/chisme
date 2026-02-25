@@ -99,7 +99,7 @@ function BookmarkItem({ bookmark, onRemove, onGoTo, onEditNote }) {
   )
 }
 
-export default function BookmarksPanel({ onClose, onGoToMessage }) {
+function BookmarksList({ onGoToMessage }) {
   const { bookmarks, loading, fetchBookmarks, removeBookmark, editBookmarkNote } =
     useBookmarkStore()
 
@@ -108,7 +108,7 @@ export default function BookmarksPanel({ onClose, onGoToMessage }) {
   }, [fetchBookmarks])
 
   return (
-    <SidePanel title="Bookmarks" onClose={onClose}>
+    <>
       {loading && (
         <p className="text-xs font-mono text-[var(--text-muted)] text-center py-6">Loading…</p>
       )}
@@ -126,6 +126,21 @@ export default function BookmarksPanel({ onClose, onGoToMessage }) {
           onEditNote={editBookmarkNote}
         />
       ))}
+    </>
+  )
+}
+
+/**
+ * BookmarksPanel — can be used standalone (wraps SidePanel) or embedded
+ * inside another panel (e.g. PersonalPanel) via the `embedded` prop.
+ */
+export default function BookmarksPanel({ onClose, onGoToMessage, embedded = false }) {
+  if (embedded) {
+    return <BookmarksList onGoToMessage={onGoToMessage} />
+  }
+  return (
+    <SidePanel title="Bookmarks" onClose={onClose}>
+      <BookmarksList onGoToMessage={onGoToMessage} />
     </SidePanel>
   )
 }
