@@ -32,7 +32,8 @@ def send_push_to_user(
     Silently skips if VAPID keys are not configured.
     """
     if not settings.VAPID_PRIVATE_KEY or not settings.VAPID_PUBLIC_KEY:
-        return  # Push not configured — skip silently
+        logger.debug("VAPID keys not configured — push notifications disabled")
+        return
 
     try:
         from pywebpush import WebPushException, webpush
