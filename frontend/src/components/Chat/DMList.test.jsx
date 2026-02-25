@@ -15,7 +15,7 @@ const baseDMs = [
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useDMStore.mockReturnValue({ dms: baseDMs, activeDmId: null })
+  useDMStore.mockReturnValue({ dms: baseDMs, activeDmId: null, unreadDmCounts: {} })
 })
 
 describe('DMList', () => {
@@ -26,7 +26,7 @@ describe('DMList', () => {
   })
 
   it('renders empty state when no DMs', () => {
-    useDMStore.mockReturnValue({ dms: [], activeDmId: null })
+    useDMStore.mockReturnValue({ dms: [], activeDmId: null, unreadDmCounts: {} })
     render(<DMList onSelect={mockOnSelect} />)
     expect(screen.getByText(/no direct messages/i)).toBeInTheDocument()
   })
@@ -38,14 +38,14 @@ describe('DMList', () => {
   })
 
   it('applies active styling to the active DM', () => {
-    useDMStore.mockReturnValue({ dms: baseDMs, activeDmId: 1 })
+    useDMStore.mockReturnValue({ dms: baseDMs, activeDmId: 1, unreadDmCounts: {} })
     render(<DMList onSelect={mockOnSelect} />)
     const activeBtn = screen.getByTestId('dm-item-1')
     expect(activeBtn.className).toMatch(/bg-\[var\(--bg-active\)\]/)
   })
 
   it('does not apply active styling to inactive DMs', () => {
-    useDMStore.mockReturnValue({ dms: baseDMs, activeDmId: 1 })
+    useDMStore.mockReturnValue({ dms: baseDMs, activeDmId: 1, unreadDmCounts: {} })
     render(<DMList onSelect={mockOnSelect} />)
     const inactiveBtn = screen.getByTestId('dm-item-2')
     expect(inactiveBtn.className).not.toMatch(/bg-\[var\(--bg-active\)\]/)
