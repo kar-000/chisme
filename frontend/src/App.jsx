@@ -50,8 +50,8 @@ function ChatLayout() {
     fetchServers()
   }, [fetchServers])
 
-  // Fetch DM list on login so useDMNotifications can open background WS connections
-  // for each DM, enabling in-app notifications when a message arrives.
+  // Fetch DM list on login so the sidebar shows existing DMs;
+  // incoming DM notifications are delivered via the global WebSocket.
   useEffect(() => {
     fetchDMs()
   }, [fetchDMs])
