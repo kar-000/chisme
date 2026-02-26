@@ -10,7 +10,7 @@ const useChatStore = create((set, get) => ({
   messages: [],          // messages for active channel
   messagesTotal: 0,
   loadingMessages: false,
-  typingUsers: [],       // usernames currently typing
+  typingUsers: [],       // { user_id, display_name }[] currently typing
 
   // Pending attachments: [{ tempId, file, progress, id, url, error }]
   pendingAttachments: [],
@@ -260,6 +260,24 @@ const useChatStore = create((set, get) => ({
     typeof updater === 'function'
       ? set((s) => ({ typingUsers: updater(s.typingUsers) }))
       : set({ typingUsers: updater }),
+
+  clearTypingUser: (userId) =>
+    set((s) => ({ typingUsers: s.typingUsers.filter((u) => u.user_id !== userId) })),
+
+  /* ── Nickname ─────────────────────────────────────────────────── */
+  // Called when a nickname_changed WS event arrives: patches all in-memory
+  // messages authored by that user and also updates any active typing entry.
+  updateUserDisplayName: (userId, displayName) =>
+    set((s) => ({
+      messages: s.messages.map((m) =>
+        m.user_id === userId
+          ? { ...m, user: { ...m.user, display_name: displayName } }
+          : m
+      ),
+      typingUsers: s.typingUsers.map((u) =>
+        u.user_id === userId ? { ...u, display_name: displayName } : u
+      ),
+    })),
 
   /* ── Voice ────────────────────────────────────────────────────── */
   voiceUsers: {},

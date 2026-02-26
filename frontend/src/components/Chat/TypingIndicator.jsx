@@ -4,7 +4,10 @@ import useAuthStore from '../../store/authStore'
 export default function TypingIndicator() {
   const typingUsers = useChatStore((s) => s.typingUsers)
   const { user } = useAuthStore()
-  const others = typingUsers.filter((u) => u !== user?.username)
+  // typingUsers is [{user_id, display_name}]; exclude self
+  const others = typingUsers
+    .filter((u) => u.user_id !== user?.id)
+    .map((u) => u.display_name)
 
   if (!others.length) return null
 

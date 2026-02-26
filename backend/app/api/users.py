@@ -1,13 +1,25 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.config import settings
 from app.database import get_db
+from app.models.server_membership import ROLE_ADMIN, ROLE_OWNER, ServerMembership
 from app.models.user import User
-from app.schemas.user import QuietHoursResponse, QuietHoursUpdate, UserResponse, UserUpdate
+from app.schemas.user import (
+    NicknameResponse,
+    NicknameUpdate,
+    QuietHoursResponse,
+    QuietHoursUpdate,
+    UserResponse,
+    UserUpdate,
+)
 from app.services.notification_service import is_user_in_quiet_hours
+from app.services.user_service import get_display_name
 from app.storage import save_upload
+from app.websocket.manager import manager
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -132,3 +144,107 @@ async def upload_avatar(
     db.commit()
     db.refresh(current_user)
     return UserResponse.model_validate(current_user)
+
+
+# ── Nickname endpoints ────────────────────────────────────────────────────────
+
+
+def _get_membership_or_404(db: Session, user_id: int, server_id: int) -> ServerMembership:
+    membership = (
+        db.query(ServerMembership)
+        .filter(ServerMembership.user_id == user_id, ServerMembership.server_id == server_id)
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Membership not found")
+    return membership
+
+
+async def _broadcast_nickname_changed(server_id: int, user_id: int, display_name: str) -> None:
+    asyncio.ensure_future(
+        manager.broadcast_to_server(
+            server_id,
+            {"type": "nickname_changed", "server_id": server_id, "user_id": user_id, "display_name": display_name},
+        )
+    )
+
+
+@router.patch("/me/servers/{server_id}/nickname", response_model=NicknameResponse)
+async def set_own_nickname(
+    server_id: int,
+    body: NicknameUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NicknameResponse:
+    """Set the current user's nickname in a server."""
+    membership = _get_membership_or_404(db, current_user.id, server_id)
+    membership.nickname = body.nickname
+    db.commit()
+    display_name = get_display_name(current_user, membership)
+    await _broadcast_nickname_changed(server_id, current_user.id, display_name)
+    return NicknameResponse(user_id=current_user.id, server_id=server_id, display_name=display_name)
+
+
+@router.delete("/me/servers/{server_id}/nickname", response_model=NicknameResponse)
+async def clear_own_nickname(
+    server_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NicknameResponse:
+    """Clear the current user's nickname in a server (reverts to display_name or username)."""
+    membership = _get_membership_or_404(db, current_user.id, server_id)
+    membership.nickname = None
+    db.commit()
+    display_name = get_display_name(current_user, membership)
+    await _broadcast_nickname_changed(server_id, current_user.id, display_name)
+    return NicknameResponse(user_id=current_user.id, server_id=server_id, display_name=display_name)
+
+
+@router.patch("/{user_id}/servers/{server_id}/nickname", response_model=NicknameResponse)
+async def set_member_nickname(
+    user_id: int,
+    server_id: int,
+    body: NicknameUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NicknameResponse:
+    """Set a member's nickname in a server. Owner or admin only."""
+    # Permission: caller must be owner or admin in this server
+    caller_membership = _get_membership_or_404(db, current_user.id, server_id)
+    if caller_membership.role not in (ROLE_OWNER, ROLE_ADMIN):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owners and admins can set nicknames")
+
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    target_membership = _get_membership_or_404(db, user_id, server_id)
+    target_membership.nickname = body.nickname
+    db.commit()
+    display_name = get_display_name(target_user, target_membership)
+    await _broadcast_nickname_changed(server_id, user_id, display_name)
+    return NicknameResponse(user_id=user_id, server_id=server_id, display_name=display_name)
+
+
+@router.delete("/{user_id}/servers/{server_id}/nickname", response_model=NicknameResponse)
+async def clear_member_nickname(
+    user_id: int,
+    server_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> NicknameResponse:
+    """Clear a member's nickname in a server. Owner or admin only."""
+    caller_membership = _get_membership_or_404(db, current_user.id, server_id)
+    if caller_membership.role not in (ROLE_OWNER, ROLE_ADMIN):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only owners and admins can clear nicknames")
+
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    target_membership = _get_membership_or_404(db, user_id, server_id)
+    target_membership.nickname = None
+    db.commit()
+    display_name = get_display_name(target_user, target_membership)
+    await _broadcast_nickname_changed(server_id, user_id, display_name)
+    return NicknameResponse(user_id=user_id, server_id=server_id, display_name=display_name)

@@ -238,7 +238,7 @@ export default function Message({ message }) {
             className="text-sm font-medium text-[var(--text-lt)] hover:underline cursor-pointer bg-transparent border-none p-0"
             style={{ textShadow: '0 0 4px rgba(93,173,226,0.4)' }}
           >
-            {message.user?.username}
+            {message.user?.display_name || message.user?.username}
           </button>
           <span className="text-[10px] text-[var(--text-muted)]">
             {formatTime(message.created_at)}

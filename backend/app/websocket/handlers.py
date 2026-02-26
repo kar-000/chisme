@@ -11,6 +11,7 @@ from app.models.server_membership import ServerMembership
 from app.models.user import User
 from app.redis import presence as presence_mgr
 from app.services import auth_service
+from app.services.user_service import get_display_name
 from app.websocket.manager import manager
 
 logger = logging.getLogger(__name__)
@@ -114,6 +115,7 @@ async def server_ws_handler(websocket: WebSocket, server_id: int, db: Session) -
                 if event_type == events.USER_TYPING:
                     # Typing events include channel_id so the frontend
                     # shows the indicator only in the correct channel.
+                    display_name = get_display_name(user, membership)
                     await manager.broadcast_to_server(
                         server_id,
                         {
@@ -121,6 +123,7 @@ async def server_ws_handler(websocket: WebSocket, server_id: int, db: Session) -
                             "channel_id": data.get("channel_id"),
                             "user_id": user.id,
                             "username": user.username,
+                            "display_name": display_name,
                         },
                         exclude_user_id=user.id,
                     )

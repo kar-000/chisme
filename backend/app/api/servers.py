@@ -22,6 +22,7 @@ from app.models.server_membership import (
 from app.models.user import User
 from app.schemas.server import ServerCreate, ServerMembershipResponse, ServerResponse, ServerUpdate
 from app.services.notifications import notify_server_created
+from app.services.user_service import get_display_name
 from app.storage import save_upload
 
 router = APIRouter()
@@ -218,7 +219,8 @@ async def list_members(
             user_id=m.user_id,
             username=m.user.username,
             avatar_url=m.user.avatar_url,
-            display_name=m.user.display_name,
+            # Resolve nickname → display_name → username so the member list shows nicknames
+            display_name=get_display_name(m.user, m),
             role=m.role,
             joined_at=m.joined_at,
         )

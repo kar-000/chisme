@@ -4,6 +4,7 @@ import useChatStore from '../../store/chatStore'
 import useAuthStore from '../../store/authStore'
 import { uploadServerIcon, listMembers } from '../../services/servers'
 import { InviteForm } from './InviteForm'
+import SetNicknameModal from './SetNicknameModal'
 
 function AppearanceTab({ server }) {
   const updateServer = useServerStore((s) => s.updateServer)
@@ -395,6 +396,7 @@ function ChannelsTab({ serverId }) {
 
 export function ServerSettingsModal({ onClose }) {
   const [activeTab, setActiveTab] = useState('appearance')
+  const [nicknameOpen, setNicknameOpen] = useState(false)
   const activeServerId = useServerStore((s) => s.activeServerId)
   const servers = useServerStore((s) => s.servers)
   const server = servers.find((s) => s.id === activeServerId)
@@ -425,6 +427,14 @@ export function ServerSettingsModal({ onClose }) {
             </button>
           ))}
           <div className="server-settings-modal__divider" />
+          <button
+            className="server-settings-modal__tab"
+            onClick={() => setNicknameOpen(true)}
+            type="button"
+          >
+            My Nickname
+          </button>
+          <div className="server-settings-modal__divider" />
           <button className="server-settings-modal__close-btn" onClick={onClose} type="button">
             ✕ Close
           </button>
@@ -446,6 +456,14 @@ export function ServerSettingsModal({ onClose }) {
           {activeTab === 'members' && <MembersTab server={server} onClose={onClose} />}
         </div>
       </div>
+
+      {nicknameOpen && (
+        <SetNicknameModal
+          serverId={activeServerId}
+          current={null}
+          onClose={() => setNicknameOpen(false)}
+        />
+      )}
     </div>
   )
 }

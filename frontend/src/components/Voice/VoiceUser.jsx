@@ -11,14 +11,14 @@ export default function VoiceUser({ user }) {
                  ${isSpeaking
                    ? 'border-[var(--crt-teal)] shadow-[0_0_8px_rgba(0,206,209,0.6)]'
                    : 'border-[var(--crt-teal)]/40'}`}
-      title={user.username}
+      title={user.display_name || user.username}
     >
       {user.muted ? (
         <span className="text-[var(--crt-orange)]" aria-label="muted">🔇</span>
       ) : (
         <span className="text-[var(--crt-teal)]" aria-label="speaking">🎙</span>
       )}
-      {user.username}
+      {user.display_name || user.username}
     </span>
   )
 }

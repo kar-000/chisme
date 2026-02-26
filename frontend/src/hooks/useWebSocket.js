@@ -129,11 +129,15 @@ export function useWebSocket(serverId, token) {
           break
         case 'user.typing': {
           if (channelId !== activeChannelId) break
-          const { username } = data
-          setTypingUsers((prev) => [...new Set([...prev, username])])
-          clearTimeout(typingTimeouts.current[username])
-          typingTimeouts.current[username] = setTimeout(() => {
-            setTypingUsers((prev) => prev.filter((u) => u !== username))
+          const { user_id: typingUserId, display_name: typingDisplayName, username: typingUsername } = data
+          const typingEntry = { user_id: typingUserId, display_name: typingDisplayName ?? typingUsername ?? '' }
+          setTypingUsers((prev) => {
+            const filtered = prev.filter((u) => u.user_id !== typingUserId)
+            return [...filtered, typingEntry]
+          })
+          clearTimeout(typingTimeouts.current[typingUserId])
+          typingTimeouts.current[typingUserId] = setTimeout(() => {
+            useChatStore.getState().clearTypingUser(typingUserId)
           }, 3000)
           break
         }
@@ -186,6 +190,20 @@ export function useWebSocket(serverId, token) {
               updated_by: data.updated_by,
             })
           }
+          break
+        }
+        case 'notification': {
+          // Cross-server or cross-context notification delivered via this WS connection.
+          if (!isInQuietHours(useAuthStore.getState().quietHours)) {
+            showNotification(data.title, {
+              body: data.body,
+              tag: data.tag,
+            })
+          }
+          break
+        }
+        case 'nickname_changed': {
+          useChatStore.getState().updateUserDisplayName(data.user_id, data.display_name)
           break
         }
         default:
