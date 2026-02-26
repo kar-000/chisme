@@ -19,25 +19,25 @@ describe('TypingIndicator', () => {
   })
 
   it('renders nothing when only the current user is typing', () => {
-    useChatStore.mockImplementation((sel) => sel({ typingUsers: ['alice'] }))
+    useChatStore.mockImplementation((sel) => sel({ typingUsers: [{ user_id: 1, display_name: 'alice' }] }))
     const { container } = render(<TypingIndicator />)
     expect(container.firstChild).toBeNull()
   })
 
   it('shows a single user typing', () => {
-    useChatStore.mockImplementation((sel) => sel({ typingUsers: ['bob'] }))
+    useChatStore.mockImplementation((sel) => sel({ typingUsers: [{ user_id: 2, display_name: 'bob' }] }))
     render(<TypingIndicator />)
     expect(screen.getByText(/bob is typing/i)).toBeInTheDocument()
   })
 
   it('shows two users typing with "and"', () => {
-    useChatStore.mockImplementation((sel) => sel({ typingUsers: ['bob', 'carol'] }))
+    useChatStore.mockImplementation((sel) => sel({ typingUsers: [{ user_id: 2, display_name: 'bob' }, { user_id: 3, display_name: 'carol' }] }))
     render(<TypingIndicator />)
     expect(screen.getByText(/bob and carol are typing/i)).toBeInTheDocument()
   })
 
   it('excludes the current user from the display', () => {
-    useChatStore.mockImplementation((sel) => sel({ typingUsers: ['alice', 'bob'] }))
+    useChatStore.mockImplementation((sel) => sel({ typingUsers: [{ user_id: 1, display_name: 'alice' }, { user_id: 2, display_name: 'bob' }] }))
     render(<TypingIndicator />)
     const text = screen.getByText(/typing/)
     expect(text.textContent).not.toMatch(/alice/)
@@ -45,7 +45,7 @@ describe('TypingIndicator', () => {
   })
 
   it('renders three animated dots', () => {
-    useChatStore.mockImplementation((sel) => sel({ typingUsers: ['bob'] }))
+    useChatStore.mockImplementation((sel) => sel({ typingUsers: [{ user_id: 2, display_name: 'bob' }] }))
     const { container } = render(<TypingIndicator />)
     const dots = container.querySelectorAll('span > span')
     expect(dots).toHaveLength(3)
