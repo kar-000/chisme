@@ -13,6 +13,7 @@ from app.models.user import User
 from app.schemas.dm_channel import DMChannelResponse, DMMessageCreate
 from app.schemas.message import MessageList, MessageResponse
 from app.schemas.user import UserResponse
+from app.services.notification_service import should_notify_for_dm
 from app.services.push_service import send_push_to_user
 from app.websocket.manager import manager
 
@@ -153,28 +154,27 @@ async def send_dm_message(
         )
     )
 
-    # Notify the recipient if they're not already receiving this via the DM WebSocket.
-    # useDMNotifications keeps a background WS open for each known DM, so broadcast_dm
-    # above already delivers to recipients who are active in the app.  For recipients
-    # not on that DM's WS, try any active server WS first; fall back to Web Push.
+    # Centralised notification dispatch for DMs.
     other_user_id = dm.user2_id if dm.user1_id == current_user.id else dm.user1_id
-    connected_dm_users = set(manager.get_dm_users(dm_id))
-    if other_user_id not in connected_dm_users:
-        body_text = (message_in.content or "")[:100] or "(attachment)"
-        delivered = await manager.send_to_user(
-            other_user_id,
-            {
-                "type": "notification",
-                "title": f"DM from {current_user.username}",
-                "body": body_text,
-                "tag": f"dm-{msg.id}",
-            },
-        )
-        if not delivered:
+    other_user = db.query(User).filter_by(id=other_user_id).first()
+    should, notif_title, notif_tag = should_notify_for_dm(
+        other_user, sender_id=current_user.id, sender_username=current_user.username
+    )
+    if should:
+        dm_payload = {
+            "type": "dm.message.new",
+            "dm_id": dm_id,
+            "message": response.model_dump(mode="json"),
+            "title": notif_title,
+            "body": (message_in.content or "")[:100],
+        }
+        if manager.is_globally_connected(other_user_id):
+            asyncio.ensure_future(manager.send_global_notification(other_user_id, dm_payload))
+        else:
             send_push_to_user(
                 user_id=other_user_id,
-                title=f"DM from {current_user.username}",
-                body=body_text,
+                title=notif_title,
+                body=(message_in.content or "")[:100],
                 url="/",
                 tag=f"dm-{msg.id}",
                 db=db,

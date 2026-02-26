@@ -1,5 +1,4 @@
 import asyncio
-import re
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,7 +9,6 @@ from app.api.deps import require_server_admin, require_server_member
 from app.database import get_db
 from app.models.attachment import Attachment
 from app.models.channel import Channel
-from app.models.keyword import UserKeyword
 from app.models.message import Message
 from app.models.poll import Poll, PollOption, PollVote
 from app.models.read_receipt import ReadReceipt
@@ -20,6 +18,7 @@ from app.redis import voice as voice_mgr
 from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
 from app.schemas.user import UserResponse
+from app.services.notification_service import should_notify_for_channel_message
 from app.services.push_service import send_push_to_user
 from app.services.user_service import get_display_name
 from app.websocket.manager import manager
@@ -438,10 +437,10 @@ async def send_message(
         )
     )
 
-    # Push notifications for all offline server members.
-    # Mentions and keyword matches get distinct titles; all others get a generic alert.
-    current_user = db.query(User).filter(User.id == current_user_id).first()
-    connected_users = set(manager.get_server_users(server_id))
+    # Centralised notification dispatch.
+    # message.user is already loaded above (get_display_name call); use it to
+    # avoid an extra DB round-trip.
+    sender_username = message.user.username
     all_members = (
         db.query(User)
         .join(ServerMembership, ServerMembership.user_id == User.id)
@@ -451,53 +450,49 @@ async def send_message(
         )
         .all()
     )
-    offline_members = [m for m in all_members if m.id not in connected_users]
-    if offline_members:
-        content = message_in.content or ""
-        body = content[:100] if content else "(attachment)"
+    content = message_in.content or ""
+    body = content[:100] if content else "(attachment)"
+    global_notifications: list[tuple[int, dict]] = []
 
-        # Determine @mentioned members within this server
-        mentioned_ids: set[int] = set()
-        if content:
-            mentioned_names = {w.lstrip("@").lower() for w in content.split() if w.startswith("@")}
-            if mentioned_names:
-                member_by_username = {m.username.lower(): m for m in all_members}
-                mentioned_ids = {member_by_username[n].id for n in mentioned_names if n in member_by_username}
-
-        # Keyword matches for offline members only
-        keyword_matches: dict[int, str] = {}  # user_id -> first matched keyword
-        if content:
-            content_lower = content.lower()
-            offline_ids = [m.id for m in offline_members]
-            keyword_rows = db.query(UserKeyword).filter(UserKeyword.user_id.in_(offline_ids)).all()
-            for kw_row in keyword_rows:
-                if kw_row.user_id not in keyword_matches and re.search(re.escape(kw_row.keyword), content_lower):
-                    keyword_matches[kw_row.user_id] = kw_row.keyword
-
-        for member in offline_members:
-            if member.id in mentioned_ids:
-                title = f"{current_user.username} mentioned you in #{channel.name} · {membership.server.name}"
-                tag = f"mention-{message.id}-{member.id}"
-            elif member.id in keyword_matches:
-                title = f"{current_user.username} mentioned a keyword in #{channel.name} · {membership.server.name}"
-                tag = f"keyword-{message.id}-{member.id}"
-            else:
-                title = f"{current_user.username} in #{channel.name} · {membership.server.name}"
-                tag = f"msg-{channel_id}"  # collapses multiple messages per channel
-            # Try to reach the user via any active WebSocket connection (e.g. they're on a
-            # different server).  Fall back to Web Push only if they are truly offline.
-            delivered = await manager.send_to_user(
-                member.id,
-                {"type": "notification", "title": title, "body": body, "tag": tag},
+    for member in all_members:
+        should, title, tag = should_notify_for_channel_message(
+            member,
+            sender_id=current_user_id,
+            sender_username=sender_username,
+            content=content,
+            channel_name=channel.name,
+            server_name=membership.server.name,
+            channel_id=channel_id,
+            db=db,
+        )
+        if not should:
+            continue
+        payload = {
+            "type": "notification",
+            "channel_id": channel_id,
+            "server_id": server_id,
+            "title": title,
+            "body": body,
+            "tag": tag,
+        }
+        if manager.is_globally_connected(member.id):
+            global_notifications.append((member.id, payload))
+        else:
+            send_push_to_user(
+                user_id=member.id,
+                title=title,
+                body=body,
+                url=f"/?channel={channel_id}",
+                tag=tag,
+                db=db,
             )
-            if not delivered:
-                send_push_to_user(
-                    user_id=member.id,
-                    title=title,
-                    body=body,
-                    url=f"/?channel={channel_id}",
-                    tag=tag,
-                    db=db,
-                )
+
+    if global_notifications:
+
+        async def _fire_notifications(items: list[tuple[int, dict]]) -> None:
+            for uid, p in items:
+                await manager.send_global_notification(uid, p)
+
+        asyncio.ensure_future(_fire_notifications(global_notifications))
 
     return response

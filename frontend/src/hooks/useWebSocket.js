@@ -5,6 +5,7 @@ import useReminderStore from '../store/reminderStore'
 import useChannelNotesStore from '../store/channelNotesStore'
 import { isMention, requestNotificationPermission, showNotification } from '../utils/notifications'
 import { isInQuietHours } from '../utils/quietHours'
+import { isGlobalWsConnected } from './useGlobalWebSocket'
 
 const MAX_RECONNECT_ATTEMPTS = 10
 
@@ -87,7 +88,10 @@ export function useWebSocket(serverId, token) {
           } else if (!isOwnMessage) {
             incrementUnread(channelId)
           }
-          if (!isOwnMessage && me && !isInQuietHours(useAuthStore.getState().quietHours)) {
+          // Fallback notification path: only fires when the global WS is mid-reconnect.
+          // During normal operation the global WS handles all notifications, making
+          // this block a no-op.  It prevents silent dropout gaps for in-server messages.
+          if (!isOwnMessage && me && !isGlobalWsConnected() && !isInQuietHours(useAuthStore.getState().quietHours)) {
             const { keywords } = useAuthStore.getState()
             const content = data.message?.content ?? ''
             const isMentioned = isMention(content, me.username)

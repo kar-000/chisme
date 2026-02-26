@@ -35,7 +35,7 @@ from app.config import settings
 from app.database import configure_wal_for_replication, get_db
 from app.redis.client import close_redis, init_redis
 from app.tasks.reminder_task import scheduler as reminder_scheduler
-from app.websocket.handlers import dm_ws_handler, server_ws_handler
+from app.websocket.handlers import dm_ws_handler, global_ws_handler, server_ws_handler
 from app.websocket.voice_handler import voice_ws_handler
 
 logging.basicConfig(
@@ -139,6 +139,12 @@ async def dm_websocket_endpoint(websocket: WebSocket, dm_id: int, db: Session = 
 @app.websocket("/ws/voice")
 async def voice_websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)) -> None:
     await voice_ws_handler(websocket, db)
+
+
+@app.websocket("/ws/global")
+async def global_websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)) -> None:
+    """Global notification WebSocket — one per user session, server-independent."""
+    await global_ws_handler(websocket, db)
 
 
 # ---------------------------------------------------------------------------
