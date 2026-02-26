@@ -177,6 +177,16 @@ export function useWebSocket(serverId, token) {
           })
           break
         }
+        case 'notification': {
+          // Cross-server or cross-context notification delivered via this WS connection.
+          if (!isInQuietHours(useAuthStore.getState().quietHours)) {
+            showNotification(data.title, {
+              body: data.body,
+              tag: data.tag,
+            })
+          }
+          break
+        }
         case 'channel_notes_updated': {
           const { applyWsUpdate } = useChannelNotesStore.getState()
           if (data.channel_id != null) {
