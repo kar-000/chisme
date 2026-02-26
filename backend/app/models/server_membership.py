@@ -21,6 +21,8 @@ class ServerMembership(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     # role: "owner" | "admin" | "member"
     role = Column(String(20), nullable=False, default=ROLE_MEMBER)
+    # Per-server display name; overrides display_name → username in the fallback chain
+    nickname = Column(String(32), nullable=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships

@@ -21,6 +21,7 @@ from app.schemas.channel import ChannelCreate, ChannelResponse
 from app.schemas.message import MessageCreate, MessageList, MessageResponse
 from app.schemas.user import UserResponse
 from app.services.push_service import send_push_to_user
+from app.services.user_service import get_display_name
 from app.websocket.manager import manager
 
 router = APIRouter()
@@ -329,9 +330,27 @@ async def get_channel_messages(
             user_voted_option_ids=voted_ids,
         )
 
+    # Batch-fetch server memberships to resolve nicknames for all message authors
+    author_ids = {m.user_id for m in messages}
+    memberships_by_user: dict[int, ServerMembership] = {}
+    if author_ids:
+        mem_rows = (
+            db.query(ServerMembership)
+            .filter(
+                ServerMembership.server_id == channel.server_id,
+                ServerMembership.user_id.in_(author_ids),
+            )
+            .all()
+        )
+        memberships_by_user = {mem.user_id: mem for mem in mem_rows}
+
     msg_responses = []
     for m in messages:
         resp = MessageResponse.model_validate(m)
+        # Inject resolved display_name (nickname → display_name → username)
+        mem = memberships_by_user.get(m.user_id)
+        if mem and mem.nickname and resp.user:
+            resp.user = resp.user.model_copy(update={"display_name": mem.nickname})
         if m.id in polls_by_message_id:
             poll = polls_by_message_id[m.id]
             resp.poll = _build_poll_resp(poll, user_voted_by_poll.get(poll.id, []))
@@ -397,6 +416,12 @@ async def send_message(
         db.refresh(message)
 
     response = MessageResponse.model_validate(message)
+
+    # Inject the sender's resolved display_name (nickname → display_name → username)
+    # into the broadcast payload so all receivers see the correct name immediately.
+    if response.user:
+        display_name = get_display_name(message.user, membership)
+        response.user = response.user.model_copy(update={"display_name": display_name})
 
     # Broadcast to all server members connected via WebSocket.
     # Payload includes channel_id so the frontend routes it to the right channel.

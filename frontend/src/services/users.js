@@ -18,3 +18,9 @@ export const uploadAvatar = (file) => {
 
 export const getQuietHours = () => api.get('/users/me/quiet-hours')
 export const updateQuietHours = (payload) => api.patch('/users/me/quiet-hours', payload)
+
+export const setNickname = (serverId, nickname) =>
+  api.patch(`/users/me/servers/${serverId}/nickname`, { nickname })
+
+export const clearNickname = (serverId) =>
+  api.delete(`/users/me/servers/${serverId}/nickname`)

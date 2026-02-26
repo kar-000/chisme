@@ -73,6 +73,21 @@ class QuietHoursResponse(BaseModel):
     currently_active: bool
 
 
+class NicknameUpdate(BaseModel):
+    nickname: str = Field(..., min_length=1, max_length=32)
+
+    @field_validator("nickname")
+    @classmethod
+    def strip_whitespace(cls, v: str) -> str:
+        return v.strip()
+
+
+class NicknameResponse(BaseModel):
+    user_id: int
+    server_id: int
+    display_name: str
+
+
 class OperatorUserResponse(BaseModel):
     """Extended user info exposed only to site admins via /api/operator/users."""
 
