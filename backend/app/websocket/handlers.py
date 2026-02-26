@@ -160,6 +160,29 @@ async def server_ws_handler(websocket: WebSocket, server_id: int, db: Session) -
         )
 
 
+async def global_ws_handler(websocket: WebSocket, db: Session) -> None:
+    """Full lifecycle handler for the global notification WebSocket at /ws/global.
+
+    One connection per user session, established at login and kept alive for
+    the duration of the session.  The backend pushes notification events here
+    for any server or DM the user belongs to, regardless of which server/channel
+    they are currently viewing in the UI.  The client sends nothing on this
+    connection — it is receive-only.
+    """
+    user = await _authenticate(websocket, db)
+    if user is None:
+        return
+
+    await manager.connect_global(websocket, user.id)
+
+    try:
+        while True:
+            # Keep the connection alive; no client->server messages expected.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_global(user.id)
+
+
 async def dm_ws_handler(websocket: WebSocket, dm_id: int, db: Session) -> None:
     """Full lifecycle handler for a DM channel WebSocket connection."""
     user = await _authenticate(websocket, db)

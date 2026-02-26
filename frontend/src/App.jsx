@@ -20,7 +20,7 @@ import PersonalPanel from './components/Panels/PersonalPanel'
 import { useFaviconBadge } from './hooks/useFaviconBadge'
 import { useInviteModal } from './hooks/useInviteModal'
 import { useVoiceWebSocket } from './hooks/useVoiceWebSocket'
-import { useDMNotifications } from './hooks/useDMNotifications'
+import { useGlobalWebSocket } from './hooks/useGlobalWebSocket'
 
 // Detect special routes at module load time (before any React rendering)
 const pathname = window.location.pathname
@@ -38,7 +38,7 @@ function ChatLayout() {
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
 
   const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token)
-  useDMNotifications()
+  useGlobalWebSocket(token)
   const invite = useInviteModal()
 
   const handleNavigate = () => setSidebarOpen(false)

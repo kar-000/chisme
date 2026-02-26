@@ -24,6 +24,8 @@ class ConnectionManager:
         self._connections: dict[int, dict[int, WebSocket]] = defaultdict(dict)
         # dm_channel_id -> {user_id: WebSocket}
         self._dm_connections: dict[int, dict[int, WebSocket]] = defaultdict(dict)
+        # user_id -> WebSocket  (one global notification connection per user)
+        self._global_connections: dict[int, WebSocket] = {}
         # channel_id -> {user_id: {user_id, username, muted, video}}
         # In-memory voice state — no Redis dependency for presence snapshots.
         self._voice_users: dict[int, dict[int, dict]] = defaultdict(dict)
@@ -121,6 +123,38 @@ class ConnectionManager:
 
     def is_in_voice(self, channel_id: int, user_id: int) -> bool:
         return user_id in self._voice_users.get(channel_id, {})
+
+    # ------------------------------------------------------------------
+    # Global notification connections (one per user, server-independent)
+    # ------------------------------------------------------------------
+
+    async def connect_global(self, websocket: WebSocket, user_id: int) -> None:
+        """Register a global notification WebSocket for a user."""
+        self._global_connections[user_id] = websocket
+        logger.info("Global WebSocket connected (user %s)", user_id)
+
+    def disconnect_global(self, user_id: int) -> None:
+        self._global_connections.pop(user_id, None)
+        logger.info("Global WebSocket disconnected (user %s)", user_id)
+
+    def is_globally_connected(self, user_id: int) -> bool:
+        return user_id in self._global_connections
+
+    async def send_global_notification(self, user_id: int, payload: dict) -> bool:
+        """Send a JSON payload on a user's global notification WebSocket.
+
+        Returns True if delivered, False if the user has no global connection
+        or if sending failed (the stale connection is cleaned up automatically).
+        """
+        ws = self._global_connections.get(user_id)
+        if ws is None:
+            return False
+        try:
+            await ws.send_text(json.dumps(payload))
+            return True
+        except Exception:
+            self.disconnect_global(user_id)
+            return False
 
     # ------------------------------------------------------------------
     # DM connections (unchanged — DMs are not scoped to a server)
