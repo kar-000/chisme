@@ -153,17 +153,31 @@ async def send_dm_message(
         )
     )
 
-    # Push notification to the recipient if they're not connected to this DM's WS
+    # Notify the recipient if they're not already receiving this via the DM WebSocket.
+    # useDMNotifications keeps a background WS open for each known DM, so broadcast_dm
+    # above already delivers to recipients who are active in the app.  For recipients
+    # not on that DM's WS, try any active server WS first; fall back to Web Push.
     other_user_id = dm.user2_id if dm.user1_id == current_user.id else dm.user1_id
     connected_dm_users = set(manager.get_dm_users(dm_id))
     if other_user_id not in connected_dm_users:
-        send_push_to_user(
-            user_id=other_user_id,
-            title=f"DM from {current_user.username}",
-            body=(message_in.content or "")[:100],
-            url="/",
-            tag=f"dm-{msg.id}",
-            db=db,
+        body_text = (message_in.content or "")[:100] or "(attachment)"
+        delivered = await manager.send_to_user(
+            other_user_id,
+            {
+                "type": "notification",
+                "title": f"DM from {current_user.username}",
+                "body": body_text,
+                "tag": f"dm-{msg.id}",
+            },
         )
+        if not delivered:
+            send_push_to_user(
+                user_id=other_user_id,
+                title=f"DM from {current_user.username}",
+                body=body_text,
+                url="/",
+                tag=f"dm-{msg.id}",
+                db=db,
+            )
 
     return response

@@ -459,13 +459,20 @@ async def send_message(
             else:
                 title = f"{current_user.username} in #{channel.name} · {membership.server.name}"
                 tag = f"msg-{channel_id}"  # collapses multiple messages per channel
-            send_push_to_user(
-                user_id=member.id,
-                title=title,
-                body=body,
-                url=f"/?channel={channel_id}",
-                tag=tag,
-                db=db,
+            # Try to reach the user via any active WebSocket connection (e.g. they're on a
+            # different server).  Fall back to Web Push only if they are truly offline.
+            delivered = await manager.send_to_user(
+                member.id,
+                {"type": "notification", "title": title, "body": body, "tag": tag},
             )
+            if not delivered:
+                send_push_to_user(
+                    user_id=member.id,
+                    title=title,
+                    body=body,
+                    url=f"/?channel={channel_id}",
+                    tag=tag,
+                    db=db,
+                )
 
     return response

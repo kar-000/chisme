@@ -30,6 +30,7 @@ function ChatLayout() {
   const { token, user } = useAuthStore()
   const fetchServers = useServerStore((s) => s.fetchServers)
   const activeDmId = useDMStore((s) => s.activeDmId)
+  const fetchDMs = useDMStore((s) => s.fetchDMs)
   const fetchBookmarks = useBookmarkStore((s) => s.fetchBookmarks)
   const [searchOpen, setSearchOpen] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
@@ -48,6 +49,12 @@ function ChatLayout() {
   useEffect(() => {
     fetchServers()
   }, [fetchServers])
+
+  // Fetch DM list on login so useDMNotifications can open background WS connections
+  // for each DM, enabling in-app notifications when a message arrives.
+  useEffect(() => {
+    fetchDMs()
+  }, [fetchDMs])
 
   useEffect(() => {
     if (token) fetchBookmarks()
