@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="chisme",
     description="Retro IRC-style chat — warm CRT aesthetic",
-    version="1.0.0",
+    version="0.9.0",
     debug=settings.DEBUG,
     lifespan=lifespan,
 )
