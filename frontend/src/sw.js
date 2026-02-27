@@ -9,7 +9,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'Chisme', {
       body: data.body,
-      icon: '/icons/icon-192.png',
+      icon: '/icons/notif1.png',
       badge: '/icons/badge-72.png',
       data: { url: data.url ?? '/' },
       tag: data.tag,

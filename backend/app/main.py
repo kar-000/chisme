@@ -30,6 +30,7 @@ from app.api.presence import bulk_router
 from app.api.presence import router as presence_router
 from app.api.reminders import router as reminders_router
 from app.api.servers import router as servers_router
+from app.api.voice import ice_router as voice_ice_router
 from app.api.voice import router as voice_router
 from app.config import settings
 from app.database import configure_wal_for_replication, get_db
@@ -105,6 +106,7 @@ app.include_router(dms.router, prefix="/api")
 app.include_router(presence_router, prefix="/api")
 app.include_router(bulk_router, prefix="/api")
 app.include_router(voice_router, prefix="/api")
+app.include_router(voice_ice_router, prefix="/api")  # GET /api/voice/ice-servers
 app.include_router(search.router, prefix="/api")
 app.include_router(push.router, prefix="/api")
 app.include_router(bookmarks_router)  # prefix="/api/bookmarks" set on router

@@ -64,10 +64,14 @@ export function useVoiceWebSocket(token) {
             username: data.username,
             muted: data.muted,
             video: data.video,
+            reconnecting: false,
           })
           break
         case 'voice.user_left':
           removeVoiceUser(data.user_id)
+          break
+        case 'voice.user_reconnecting':
+          setVoiceUser(data.user_id, { reconnecting: true })
           break
         case 'voice.state_changed':
           setVoiceUser(data.user_id, {

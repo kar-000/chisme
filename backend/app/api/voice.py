@@ -1,8 +1,9 @@
 """
-Voice REST API — query who is in a voice channel.
+Voice REST API — query who is in a voice channel, and fetch ICE server config.
 
 Endpoints:
   GET /api/channels/{channel_id}/voice   → list of users currently in voice
+  GET /api/voice/ice-servers             → STUN/TURN server list for WebRTC
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,12 +11,32 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.database import get_db
 from app.models.channel import Channel
 from app.models.user import User
 from app.redis import voice as voice_mgr
 
 router = APIRouter(prefix="/channels", tags=["voice"])
+ice_router = APIRouter(prefix="/voice", tags=["voice"])
+
+
+@ice_router.get("/ice-servers")
+async def get_ice_servers(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Return ICE server config for WebRTC peer connections."""
+    servers: list[dict] = [{"urls": "stun:stun.l.google.com:19302"}]
+    if settings.TURN_SERVER and settings.TURN_USERNAME and settings.TURN_PASSWORD:
+        port_suffix = "" if ":" in settings.TURN_SERVER else ":3478"
+        servers.append(
+            {
+                "urls": f"turn:{settings.TURN_SERVER}{port_suffix}",
+                "username": settings.TURN_USERNAME,
+                "credential": settings.TURN_PASSWORD,
+            }
+        )
+    return {"ice_servers": servers}
 
 
 class VoiceUser(BaseModel):

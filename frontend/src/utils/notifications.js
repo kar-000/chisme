@@ -36,7 +36,7 @@ export async function showNotification(title, { body, tag, onClick } = {}) {
         await reg.showNotification(title, {
           body,
           tag,
-          icon: '/icons/icon-192.png',
+          icon: '/icons/notif1.png',
           badge: '/icons/badge-72.png',
           renotify: false,
         })

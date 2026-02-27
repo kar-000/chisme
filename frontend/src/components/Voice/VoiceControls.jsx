@@ -38,7 +38,7 @@ export default function VoiceControls({ currentUser, sendMsg, connected }) {
         <div className="flex items-center gap-1 flex-wrap flex-1">
           <span className="text-[var(--text-muted)] mr-1">Voice:</span>
           {participants.map((u) => (
-            <VoiceUser key={u.user_id} user={u} />
+            <VoiceUser key={u.user_id} user={u} isLocalUser={u.user_id === currentUser?.id} />
           ))}
         </div>
       ) : (
