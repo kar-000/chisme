@@ -167,6 +167,7 @@ async def send_dm_message(
             "message": response.model_dump(mode="json"),
             "title": notif_title,
             "body": (message_in.content or "")[:100],
+            "is_mention": True,
         }
         if manager.is_globally_connected(other_user_id):
             asyncio.ensure_future(manager.send_global_notification(other_user_id, dm_payload))

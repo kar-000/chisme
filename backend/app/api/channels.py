@@ -455,7 +455,7 @@ async def send_message(
     global_notifications: list[tuple[int, dict]] = []
 
     for member in all_members:
-        should, title, tag = should_notify_for_channel_message(
+        should, title, tag, is_mention = should_notify_for_channel_message(
             member,
             sender_id=current_user_id,
             sender_username=sender_username,
@@ -474,6 +474,7 @@ async def send_message(
             "title": title,
             "body": body,
             "tag": tag,
+            "is_mention": is_mention,
         }
         if manager.is_globally_connected(member.id):
             global_notifications.append((member.id, payload))
