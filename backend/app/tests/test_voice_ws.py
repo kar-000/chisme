@@ -86,10 +86,11 @@ class TestVoiceJoinLeave:
                 assert event["user_id"] == d1["user"]["id"]
 
     def test_voice_disconnect_auto_leave(self, client: TestClient):
-        """Closing WS while in voice → voice.user_left broadcast to remaining users.
+        """Closing WS while in voice → voice.user_reconnecting broadcast with 7-second grace.
 
-        Unlike the channel WS, /ws/voice disconnect emits only voice.user_left —
-        no user.left or presence.changed events on the voice endpoint.
+        Unlike the channel WS, /ws/voice disconnect starts a grace period before
+        the user is fully evicted. The immediate event is voice.user_reconnecting;
+        voice.user_left fires after the delay (not tested here — 7 s is too long).
         """
         d1 = _register(client, "vd1a", "vd1a@x.com")
         d2 = _register(client, "vd1b", "vd1b@x.com")
@@ -105,9 +106,9 @@ class TestVoiceJoinLeave:
                 ws2.receive_json()  # voice.user_joined for ws1
 
             # ws1 context exits — connection closed while in voice.
-            # ws2 should receive exactly one event: voice.user_left.
+            # ws2 immediately receives voice.user_reconnecting (grace period started).
             event = ws2.receive_json()
-            assert event["type"] == "voice.user_left"
+            assert event["type"] == "voice.user_reconnecting"
             assert event["user_id"] == d1["user"]["id"]
 
 

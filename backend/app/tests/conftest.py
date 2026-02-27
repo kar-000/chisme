@@ -22,6 +22,7 @@ from sqlalchemy.pool import StaticPool
 # Import app modules AFTER env vars are set
 from app.database import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.websocket.voice_handler import voice_manager
 
 # Single shared in-memory SQLite engine — StaticPool ensures all
 # connections share the same DB instance.
@@ -50,6 +51,22 @@ def setup_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def reset_voice_manager():
+    """Reset the in-memory voice manager before each test.
+
+    VoiceConnectionManager is a module-level singleton. Without this reset,
+    voice state (users, pending leave tasks) leaks between tests because the
+    grace-period tasks are never awaited in synchronous TestClient tests.
+    """
+    for task in list(voice_manager._pending_leaves.values()):
+        task.cancel()
+    voice_manager._connections.clear()
+    voice_manager._voice_users.clear()
+    voice_manager._pending_leaves.clear()
+    yield
 
 
 @pytest.fixture()
