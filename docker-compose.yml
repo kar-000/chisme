@@ -9,7 +9,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - postgres_wal:/var/lib/postgresql/wal_archive
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD", "pg_isready", "-U", "chisme", "-d", "chisme"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -64,6 +64,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
     depends_on:
       backend:
         condition: service_healthy
