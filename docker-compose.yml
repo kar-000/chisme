@@ -42,6 +42,7 @@ services:
       LOG_LEVEL: INFO
       CHISME_ROLE: primary
       REDIS_URL: redis://redis:6379/0
+      TENOR_API_KEY: ${TENOR_API_KEY:-}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
