@@ -1,8 +1,8 @@
 /**
  * Dynamic favicon badge utility.
  *
- * Draws a 32×32 canvas favicon: dark background, CRT-teal "C" lettermark,
- * and an optional orange badge in the top-right corner showing the unread count.
+ * Draws a 32×32 canvas favicon using the app icon as the base, with an
+ * optional orange badge in the top-right corner showing the unread count.
  *
  * Usage:
  *   setFaviconBadge(0)   // plain icon, no badge
@@ -11,6 +11,7 @@
  */
 
 let _link = null
+let _iconImage = null
 
 function getFaviconLink() {
   if (!_link) {
@@ -25,25 +26,37 @@ function getFaviconLink() {
   return _link
 }
 
-function drawFavicon(count) {
+function loadIcon() {
+  if (_iconImage) return Promise.resolve(_iconImage)
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => { _iconImage = img; resolve(img) }
+    img.onerror = () => resolve(null)
+    img.src = '/icons/icon-192.png'
+  })
+}
+
+function drawFavicon(count, img) {
   const size = 32
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')
 
-  // Dark CRT background with rounded corners
-  ctx.fillStyle = '#0a0a0f'
-  ctx.beginPath()
-  ctx.roundRect(0, 0, size, size, 6)
-  ctx.fill()
-
-  // "C" lettermark in CRT teal
-  ctx.fillStyle = '#00ced1'
-  ctx.font = 'bold 20px "Courier New", monospace'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('C', size / 2, size / 2 + 1)
+  if (img) {
+    ctx.drawImage(img, 0, 0, size, size)
+  } else {
+    // Fallback if image fails to load: dark background + "C" lettermark
+    ctx.fillStyle = '#0a0a0f'
+    ctx.beginPath()
+    ctx.roundRect(0, 0, size, size, 6)
+    ctx.fill()
+    ctx.fillStyle = '#00ced1'
+    ctx.font = 'bold 20px "Courier New", monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('C', size / 2, size / 2 + 1)
+  }
 
   if (count > 0) {
     // Orange badge circle in top-right
@@ -69,5 +82,7 @@ function drawFavicon(count) {
 }
 
 export function setFaviconBadge(count) {
-  getFaviconLink().href = drawFavicon(count)
+  loadIcon().then((img) => {
+    getFaviconLink().href = drawFavicon(count, img)
+  })
 }
