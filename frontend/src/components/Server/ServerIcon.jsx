@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import useNotificationStore from '../../store/notificationStore'
 import useServerStore from '../../store/serverStore'
 import { useInviteModal } from '../../hooks/useInviteModal'
 
@@ -8,6 +9,23 @@ export function ServerIcon({ server, isActive, onClick }) {
   const menuRef = useRef(null)
   const invite = useInviteModal()
   const setActiveServer = useServerStore((s) => s.setActiveServer)
+  const clearServerNotification = useNotificationStore((s) => s.clearServerNotification)
+  const notifType = useNotificationStore((s) => s.serverNotifications[server.id] ?? null)
+
+  const notifColor =
+    notifType === 'mention'
+      ? 'var(--accent-orange)'
+      : notifType === 'message'
+        ? 'var(--accent-teal)'
+        : null
+  const notifStyle = notifColor
+    ? {
+        outline: `2px solid ${notifColor}`,
+        outlineOffset: '2px',
+        boxShadow: `0 0 10px ${notifColor}`,
+        transition: 'outline 0.2s ease, box-shadow 0.2s ease',
+      }
+    : {}
 
   const canInvite =
     server.current_user_role === 'owner' || server.current_user_role === 'admin'
@@ -43,6 +61,7 @@ export function ServerIcon({ server, isActive, onClick }) {
         onContextMenu={handleContextMenu}
         title={server.name}
         type="button"
+        style={notifStyle}
       >
         {server.icon_url ? (
           <img src={server.icon_url} alt={server.name} />
@@ -65,6 +84,7 @@ export function ServerIcon({ server, isActive, onClick }) {
               type="button"
               onClick={() => {
                 setActiveServer(server.id)
+                clearServerNotification(server.id)
                 setMenuOpen(false)
                 invite.open()
               }}
@@ -77,6 +97,7 @@ export function ServerIcon({ server, isActive, onClick }) {
             type="button"
             onClick={() => {
               setActiveServer(server.id)
+              clearServerNotification(server.id)
               setMenuOpen(false)
             }}
           >

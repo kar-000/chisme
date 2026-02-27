@@ -19,6 +19,7 @@
 import { useEffect, useRef } from 'react'
 import useChatStore from '../store/chatStore'
 import useDMStore from '../store/dmStore'
+import useNotificationStore from '../store/notificationStore'
 import useServerStore from '../store/serverStore'
 import { showNotification } from '../utils/notifications'
 
@@ -66,6 +67,8 @@ export function useGlobalWebSocket(token) {
             const { activeChannelId } = useChatStore.getState()
             const { activeServerId } = useServerStore.getState()
             if (data.channel_id === activeChannelId && data.server_id === activeServerId) break
+            const { addServerNotification } = useNotificationStore.getState()
+            addServerNotification(data.server_id, data.is_mention ? 'mention' : 'message')
             showNotification(data.title, { body: data.body, tag: data.tag })
             break
           }

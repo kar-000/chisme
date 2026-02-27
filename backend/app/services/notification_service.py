@@ -64,23 +64,26 @@ def should_notify_for_channel_message(
     server_name: str,
     channel_id: int,
     db: "Session",
-) -> tuple[bool, str, str]:
+) -> tuple[bool, str, str, bool]:
     """Decide whether *user* should receive a notification for a channel message.
 
-    Returns ``(should_notify, title, tag)``.
+    Returns ``(should_notify, title, tag, is_mention)``.
+
+    ``is_mention`` is True only when the notification fired because of a
+    @username mention; it is False for keyword matches and the generic case.
 
     Priority:
       1. Own message → no notification
       2. Quiet hours / DND → no notification
       3. TODO: channel muting — skip muted channels when that feature is added
-      4. Keyword match → notify with keyword title
-      5. @mention → notify with mention title
-      6. All other messages → notify with generic title
+      4. Keyword match → notify with keyword title (is_mention=False)
+      5. @mention → notify with mention title (is_mention=True)
+      6. All other messages → notify with generic title (is_mention=False)
     """
     if user.id == sender_id:
-        return False, "", ""
+        return False, "", "", False
     if is_user_in_quiet_hours(user):
-        return False, "", ""
+        return False, "", "", False
 
     # TODO: add channel muting check here when implemented
 
@@ -94,16 +97,16 @@ def should_notify_for_channel_message(
         for kw_row in keyword_rows:
             if re.search(re.escape(kw_row.keyword), content_lower):
                 title = f'Keyword "{kw_row.keyword}" in #{channel_name} · {server_name} from {sender_username}'
-                return True, title, f"keyword-{channel_id}-{user.id}"
+                return True, title, f"keyword-{channel_id}-{user.id}", False
 
     # @mention
     if content_lower and f"@{user.username.lower()}" in content_lower:
         title = f"{sender_username} mentioned you in #{channel_name} · {server_name}"
-        return True, title, f"mention-{channel_id}-{user.id}"
+        return True, title, f"mention-{channel_id}-{user.id}", True
 
     # Generic
     title = f"{sender_username} in #{channel_name} · {server_name}"
-    return True, title, f"msg-{channel_id}"
+    return True, title, f"msg-{channel_id}", False
 
 
 def should_notify_for_dm(
