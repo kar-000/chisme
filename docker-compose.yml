@@ -46,6 +46,9 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_CLAIMS_EMAIL: ${VAPID_CLAIMS_EMAIL:-mailto:admin@localhost}
+      TURN_SERVER: ${DOMAIN:-}
+      TURN_USERNAME: ${TURN_USERNAME:-}
+      TURN_PASSWORD: ${TURN_PASSWORD:-}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -101,6 +104,22 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    restart: unless-stopped
+
+  coturn:
+    image: coturn/coturn:4.6.2
+    network_mode: host
+    command: >
+      -n --log-file=stdout
+      --listening-port=3478
+      --fingerprint
+      --lt-cred-mech
+      --realm=${DOMAIN:-localhost}
+      --user=${TURN_USERNAME:-chisme}:${TURN_PASSWORD:-changeme}
+      --min-port=49152
+      --max-port=49172
+      --no-multicast-peers
+      --no-cli
     restart: unless-stopped
 
 volumes:

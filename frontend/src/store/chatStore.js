@@ -309,6 +309,17 @@ const useChatStore = create((set, get) => ({
     set({ pendingVoiceSignals: [] })
     return signals
   },
+
+  /* ── Peer connection health ───────────────────────────────────── */
+  // userId -> RTCPeerConnectionState string (e.g. 'connecting', 'connected', 'failed')
+  peerConnectionStates: {},
+
+  setPeerConnectionState: (userId, state) =>
+    set((s) => ({
+      peerConnectionStates: { ...s.peerConnectionStates, [userId]: state },
+    })),
+
+  clearPeerConnectionStates: () => set({ peerConnectionStates: {} }),
 }))
 
 export default useChatStore

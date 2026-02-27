@@ -11,6 +11,7 @@ deployment (single uvicorn worker).  A Redis-backed implementation would
 be required for multi-worker/multi-node setups.
 """
 
+import asyncio
 import json
 import logging
 
@@ -35,6 +36,8 @@ class VoiceConnectionManager:
         self._connections: dict[int, WebSocket] = {}
         # user_id -> {user_id, username, muted, video, speaking}
         self._voice_users: dict[int, dict] = {}
+        # user_id -> pending leave task (7-second grace period)
+        self._pending_leaves: dict[int, asyncio.Task] = {}
 
     # ------------------------------------------------------------------
     # Connection management
@@ -83,6 +86,36 @@ class VoiceConnectionManager:
         return list(self._voice_users.values())
 
     # ------------------------------------------------------------------
+    # Reconnection grace period
+    # ------------------------------------------------------------------
+
+    async def schedule_leave(self, user_id: int, delay: float = 7.0) -> None:
+        """Broadcast user_left after `delay` seconds unless cancel_leave() is called first."""
+        existing = self._pending_leaves.pop(user_id, None)
+        if existing:
+            existing.cancel()
+
+        async def _delayed() -> None:
+            await asyncio.sleep(delay)
+            if self.leave_voice(user_id):
+                await self.broadcast(
+                    {
+                        "type": events.VOICE_USER_LEFT,
+                        "channel_id": GLOBAL_VOICE_CHANNEL,
+                        "user_id": user_id,
+                    }
+                )
+            self._pending_leaves.pop(user_id, None)
+
+        self._pending_leaves[user_id] = asyncio.create_task(_delayed())
+
+    def cancel_leave(self, user_id: int) -> None:
+        """Cancel a pending delayed leave (user reconnected in time)."""
+        task = self._pending_leaves.pop(user_id, None)
+        if task:
+            task.cancel()
+
+    # ------------------------------------------------------------------
     # Messaging
     # ------------------------------------------------------------------
 
@@ -123,6 +156,8 @@ async def voice_ws_handler(websocket: WebSocket, db: Session) -> None:
         return
 
     await voice_manager.connect(user.id, websocket)
+    # Cancel any pending grace-period leave from a previous disconnect
+    voice_manager.cancel_leave(user.id)
 
     # Send the current participant list to the newly connected client so it
     # can clear any stale state from a previous session.
@@ -238,13 +273,15 @@ async def voice_ws_handler(websocket: WebSocket, db: Session) -> None:
         logger.exception("voice_ws_handler: unexpected error: %s", exc)
     finally:
         was_in_voice = voice_manager.is_in_voice(user.id)
-        voice_manager.leave_voice(user.id)
         voice_manager.disconnect(user.id)
         if was_in_voice:
+            # Broadcast reconnecting state; schedule actual leave after grace period.
+            # If the user reconnects within 7 seconds, cancel_leave() clears the task.
             await voice_manager.broadcast(
                 {
-                    "type": events.VOICE_USER_LEFT,
+                    "type": events.VOICE_USER_RECONNECTING,
                     "channel_id": GLOBAL_VOICE_CHANNEL,
                     "user_id": user.id,
                 }
             )
+            await voice_manager.schedule_leave(user.id, delay=7.0)

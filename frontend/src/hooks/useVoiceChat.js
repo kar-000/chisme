@@ -12,9 +12,8 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import api from '../services/api'
 import useChatStore from '../store/chatStore'
-
-const ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }]
 
 export function useVoiceChat(currentUser, sendMsg) {
   const [inVoice, setInVoice] = useState(false)
@@ -29,6 +28,7 @@ export function useVoiceChat(currentUser, sendMsg) {
   const mutedRef = useRef(true)
   const speakingIntervalRef = useRef(null)
   const audioContextRef = useRef(null)
+  const iceServersRef = useRef([{ urls: 'stun:stun.l.google.com:19302' }])
 
   const voiceUsers = useChatStore((s) => s.voiceUsers)
   const pendingVoiceSignals = useChatStore((s) => s.pendingVoiceSignals)
@@ -37,7 +37,8 @@ export function useVoiceChat(currentUser, sendMsg) {
   // ── Helper: create a peer connection to a remote user ──────────────────────
   const createPeer = useCallback((remoteUserId, isInitiator) => {
     if (!currentUser) return null
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+    const pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
+    useChatStore.getState().setPeerConnectionState(remoteUserId, 'connecting')
 
     // Add local tracks (may be empty if no mic)
     localStreamRef.current?.getTracks().forEach((t) => pc.addTrack(t, localStreamRef.current))
@@ -72,8 +73,13 @@ export function useVoiceChat(currentUser, sendMsg) {
     }
 
     pc.onconnectionstatechange = () => {
-      if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+      useChatStore.getState().setPeerConnectionState(remoteUserId, pc.connectionState)
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         closePeer(remoteUserId)
+      } else if (pc.connectionState === 'disconnected') {
+        // Attempt ICE restart — if the peer is still reachable, the connection
+        // recovers without dropping. onnegotiationneeded fires automatically.
+        pc.restartIce?.()
       }
     }
 
@@ -101,6 +107,7 @@ export function useVoiceChat(currentUser, sendMsg) {
   const closePeer = useCallback((remoteUserId) => {
     const pc = peersRef.current[remoteUserId]
     if (pc) {
+      pc.getSenders().forEach((s) => s.track?.stop())
       pc.close()
       delete peersRef.current[remoteUserId]
     }
@@ -179,15 +186,25 @@ export function useVoiceChat(currentUser, sendMsg) {
       source.connect(analyser)
       const buffer = new Uint8Array(analyser.frequencyBinCount)
 
-      let lastSpeaking = false
+      let framesAbove = 0, framesBelow = 0, speaking = false
+      // ~0.6s of audio above threshold before speaking=true; ~1.0s of silence before false.
+      const FRAMES_TO_START = 3
+      const FRAMES_TO_STOP = 5
       speakingIntervalRef.current = setInterval(() => {
         if (!inVoiceRef.current) return
         analyser.getByteFrequencyData(buffer)
-        // RMS of the frequency data as a volume proxy
         const rms = Math.sqrt(buffer.reduce((sum, v) => sum + v * v, 0) / buffer.length)
-        const speaking = !mutedRef.current && rms > 15
-        if (speaking !== lastSpeaking) {
-          lastSpeaking = speaking
+        const loud = !mutedRef.current && rms > 15
+
+        if (loud) { framesAbove++; framesBelow = 0 }
+        else       { framesBelow++; framesAbove = 0 }
+
+        const newSpeaking = speaking
+          ? framesBelow < FRAMES_TO_STOP
+          : framesAbove >= FRAMES_TO_START
+
+        if (newSpeaking !== speaking) {
+          speaking = newSpeaking
           sendMsg({ type: 'voice.state_update', muted: mutedRef.current, video: false, speaking })
         }
       }, 200)
@@ -207,6 +224,14 @@ export function useVoiceChat(currentUser, sendMsg) {
   const joinVoice = useCallback(async () => {
     if (inVoiceRef.current) return
     setMicError(null)
+
+    // Fetch TURN/ICE server config from backend — falls back to STUN-only on error
+    try {
+      const { data } = await api.get('/voice/ice-servers')
+      iceServersRef.current = data.ice_servers
+    } catch {
+      // keep STUN fallback already in iceServersRef
+    }
 
     // Try to get microphone — continue even if it fails (listen-only)
     try {
@@ -236,6 +261,7 @@ export function useVoiceChat(currentUser, sendMsg) {
 
     stopSpeakingDetection()
     Object.keys(peersRef.current).forEach((uid) => closePeer(Number(uid)))
+    useChatStore.getState().clearPeerConnectionStates()
 
     localStreamRef.current?.getTracks().forEach((t) => t.stop())
     localStreamRef.current = null

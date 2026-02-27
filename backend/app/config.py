@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     VAPID_PUBLIC_KEY: str = ""
     VAPID_CLAIMS_EMAIL: str = "mailto:admin@localhost"
 
+    # TURN / Coturn — required for users behind symmetric NAT.
+    # Coturn runs as a separate Docker Compose service.
+    # Leave blank to use STUN-only ICE (sufficient for most networks).
+    TURN_SERVER: str = ""  # e.g. "chisme.example.com" or "chisme.example.com:3478"
+    TURN_USERNAME: str = ""
+    TURN_PASSWORD: str = ""
+
     # SMTP — optional, for operator notifications on server creation.
     # If SMTP_HOST is empty, events are logged only (visible in docker compose logs).
     SMTP_HOST: str = ""
