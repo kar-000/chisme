@@ -61,8 +61,9 @@ def reset_voice_manager():
     voice state (users, pending leave tasks) leaks between tests because the
     grace-period tasks are never awaited in synchronous TestClient tests.
     """
-    for task in list(voice_manager._pending_leaves.values()):
-        task.cancel()
+    for server_tasks in list(voice_manager._pending_leaves.values()):
+        for task in list(server_tasks.values()):
+            task.cancel()
     voice_manager._connections.clear()
     voice_manager._voice_users.clear()
     voice_manager._pending_leaves.clear()

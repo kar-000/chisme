@@ -138,9 +138,9 @@ async def dm_websocket_endpoint(websocket: WebSocket, dm_id: int, db: Session = 
     await dm_ws_handler(websocket, dm_id, db)
 
 
-@app.websocket("/ws/voice")
-async def voice_websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)) -> None:
-    await voice_ws_handler(websocket, db)
+@app.websocket("/ws/voice/{server_id}")
+async def voice_websocket_endpoint(websocket: WebSocket, server_id: int, db: Session = Depends(get_db)) -> None:
+    await voice_ws_handler(websocket, server_id, db)
 
 
 @app.websocket("/ws/global")

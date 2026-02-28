@@ -6,7 +6,9 @@
  *   currentUser — { id, username } from authStore
  *   sendMsg     — sendMsg() from useWebSocket
  */
+import { useRef, useEffect } from 'react'
 import useChatStore from '../../store/chatStore'
+import useServerStore from '../../store/serverStore'
 import { useVoiceChat } from '../../hooks/useVoiceChat'
 import VoiceUser from './VoiceUser'
 
@@ -24,6 +26,16 @@ export default function VoiceControls({ currentUser, sendMsg, connected }) {
     currentUser,
     sendMsg,
   )
+
+  // Auto-leave voice when the user switches servers to avoid stale peer connections
+  const activeServerId = useServerStore((s) => s.activeServerId)
+  const prevServerIdRef = useRef(activeServerId)
+  useEffect(() => {
+    if (prevServerIdRef.current !== activeServerId) {
+      prevServerIdRef.current = activeServerId
+      if (inVoice) leaveVoice()
+    }
+  }, [activeServerId, inVoice, leaveVoice])
 
   const participants = Object.values(voiceUsers)
   const micLabel = micErrorLabel(micError)
