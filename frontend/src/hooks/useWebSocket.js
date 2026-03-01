@@ -206,16 +206,6 @@ export function useWebSocket(serverId, token) {
           }
           break
         }
-        case 'notification': {
-          // Cross-server or cross-context notification delivered via this WS connection.
-          if (!isInQuietHours(useAuthStore.getState().quietHours)) {
-            showNotification(data.title, {
-              body: data.body,
-              tag: data.tag,
-            })
-          }
-          break
-        }
         case 'nickname_changed': {
           useChatStore.getState().updateUserDisplayName(data.user_id, data.display_name)
           break
