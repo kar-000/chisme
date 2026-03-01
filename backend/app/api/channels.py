@@ -476,17 +476,20 @@ async def send_message(
             "tag": tag,
             "is_mention": is_mention,
         }
+        # Always attempt push — the tag field deduplicates on the browser side if
+        # both push and the global-WS notification arrive while the tab is active.
+        # Without this, users whose tab is backgrounded/sleeping miss notifications
+        # because is_globally_connected() stays True while JS is suspended.
+        send_push_to_user(
+            user_id=member.id,
+            title=title,
+            body=body,
+            url=f"/?channel={channel_id}",
+            tag=tag,
+            db=db,
+        )
         if manager.is_globally_connected(member.id):
             global_notifications.append((member.id, payload))
-        else:
-            send_push_to_user(
-                user_id=member.id,
-                title=title,
-                body=body,
-                url=f"/?channel={channel_id}",
-                tag=tag,
-                db=db,
-            )
 
     if global_notifications:
 

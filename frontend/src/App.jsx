@@ -37,7 +37,8 @@ function ChatLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [bookmarksOpen, setBookmarksOpen] = useState(false)
 
-  const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token)
+  const activeServerId = useServerStore((s) => s.activeServerId)
+  const { sendVoiceMsg, voiceConnected } = useVoiceWebSocket(token, activeServerId)
   useGlobalWebSocket(token)
   const invite = useInviteModal()
 

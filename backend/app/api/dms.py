@@ -169,16 +169,16 @@ async def send_dm_message(
             "body": (message_in.content or "")[:100],
             "is_mention": True,
         }
+        # Always attempt push — tag deduplicates on the browser side.
+        send_push_to_user(
+            user_id=other_user_id,
+            title=notif_title,
+            body=(message_in.content or "")[:100],
+            url="/",
+            tag=f"dm-{msg.id}",
+            db=db,
+        )
         if manager.is_globally_connected(other_user_id):
             asyncio.ensure_future(manager.send_global_notification(other_user_id, dm_payload))
-        else:
-            send_push_to_user(
-                user_id=other_user_id,
-                title=notif_title,
-                body=(message_in.content or "")[:100],
-                url="/",
-                tag=f"dm-{msg.id}",
-                db=db,
-            )
 
     return response

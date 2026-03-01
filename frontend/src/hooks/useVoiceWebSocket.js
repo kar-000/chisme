@@ -1,10 +1,10 @@
 /**
- * useVoiceWebSocket — persistent WebSocket connection to /ws/voice.
+ * useVoiceWebSocket — persistent WebSocket connection to /ws/voice/{serverId}.
  *
- * Unlike the channel WebSocket this connection is NOT tied to any text
- * channel.  It stays open for the lifetime of the ChatLayout and
- * survives text-channel switches, so voice state is never interrupted
- * by navigation.
+ * Scoped to the active server — voice participants in Server A are invisible
+ * to users in Server B.  The connection reconnects automatically when the
+ * active server changes, and the incoming voice.state_snapshot clears any
+ * stale voice state from the previous server.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -16,7 +16,7 @@ function getBackoffDelay(attempt) {
   return Math.min(1000 * Math.pow(2, attempt), 30000)
 }
 
-export function useVoiceWebSocket(token) {
+export function useVoiceWebSocket(token, serverId) {
   const [connected, setConnected] = useState(false)
 
   const wsRef = useRef(null)
@@ -36,9 +36,9 @@ export function useVoiceWebSocket(token) {
   }, [])
 
   const connect = useCallback(() => {
-    if (!token) return
+    if (!token || !serverId) return
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/voice`)
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws/voice/${serverId}`)
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -55,7 +55,7 @@ export function useVoiceWebSocket(token) {
 
       switch (data.type) {
         case 'voice.state_snapshot':
-          // Atomically replace state — clears anyone who left during a disconnect
+          // Atomically replace state — clears stale participants from previous server
           setVoiceSnapshot(data.users)
           break
         case 'voice.user_joined':
@@ -101,7 +101,7 @@ export function useVoiceWebSocket(token) {
     }
 
     ws.onerror = () => ws.close()
-  }, [token, setVoiceSnapshot, setVoiceUser, removeVoiceUser, pushVoiceSignal])
+  }, [token, serverId, setVoiceSnapshot, setVoiceUser, removeVoiceUser, pushVoiceSignal])
 
   useEffect(() => {
     mountedRef.current = true
